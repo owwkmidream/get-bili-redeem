@@ -1,5 +1,5 @@
 // ==UserScript==
-// @name        破解bili
+// @name        rush4award
 // @namespace   Violentmonkey Scripts
 // @license Mit
 // @match       https://www.bilibili.com/blackboard/new-award-exchange.html?task_id=*
