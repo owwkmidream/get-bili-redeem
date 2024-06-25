@@ -3,13 +3,12 @@
 // @namespace   Violentmonkey Scripts
 // @license Mit
 // @match       https://www.bilibili.com/blackboard/new-award-exchange.html?task_id=*
-// @match       https://www.baidu.com/
 // @require     https://cdn.bootcdn.net/ajax/libs/axios/1.7.2/axios.js
 // @grant       GM_addStyle
 // @version     2.0.0
 // @author      vurses
 // @icon         https://i0.hdslb.com/bfs/activity-plat/static/b9vgSxGaAg.png
-// @description    🔥功能介绍🔥：🎉 1、支持B站所有激励计划，是否成功取决于b站接口是否更新，与游戏版本无关；🎉 2、打开对应一个兑换码页面自动运行，F12控制台查看运行信息；
+// @description    🔥功能介绍🔥：🎉 1、支持B站所有激励计划，是否成功取决于b站接口是否更新，与游戏版本无关；🎉 2、打开对应一个兑换码页面自动运行；
 // @downloadURL https://update.greasyfork.org/scripts/492729/Bili%E5%85%91%E6%8D%A2%E7%A0%81%E6%8A%A2%E8%B4%AD.user.js
 // @updateURL https://update.greasyfork.org/scripts/492729/Bili%E5%85%91%E6%8D%A2%E7%A0%81%E6%8A%A2%E8%B4%AD.meta.js
 // ==/UserScript==
