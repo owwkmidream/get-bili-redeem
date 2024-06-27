@@ -756,28 +756,26 @@
         return config;
     });
     let activity_id = "";
-    setTimeout(function() {
+    setTimeout(async function() {
         document
             .querySelector(
                 "#app > div > div.home-wrap.select-disable > section.tool-wrap > div"
             )
             .click();
-        (async() => {
-            // 获取activity_id
-            activity_id = await
-            http
-                .get("/x/activity_components/mission/info", {
-                    params: {
-                        ...params
-                    }
-                })
-                .then(function(response) {
-                    return response.data.data.act_id;
-                })
-                .catch(function(error) {
-                    console.log(error);
-                });
-        })();
+        // 获取activity_id
+        activity_id = await
+        http
+            .get("/x/activity_components/mission/info", {
+                params: {
+                    ...params
+                }
+            })
+            .then(function(response) {
+                return response.data.data.act_id;
+            })
+            .catch(function(error) {
+                console.log(error);
+            });
         // 请求奖励接口
         setInterval(() => {
             http
