@@ -764,6 +764,7 @@
             .click();
         (async() => {
             // 获取activity_id
+            activity_id = await
             http
                 .get("/x/activity_components/mission/info", {
                     params: {
@@ -771,7 +772,7 @@
                     }
                 })
                 .then(function(response) {
-                    activity_id = response.data.data.act_id;
+                    return response.data.data.act_id;
                 })
                 .catch(function(error) {
                     console.log(error);
