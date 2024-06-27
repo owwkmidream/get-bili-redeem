@@ -5,7 +5,7 @@
 // @match       https://www.bilibili.com/blackboard/new-award-exchange.html?task_id=*
 // @require     https://cdn.bootcdn.net/ajax/libs/axios/1.7.2/axios.js
 // @grant       GM_addStyle
-// @version     2.0.0
+// @version     2.0.1
 // @author      vurses
 // @icon         https://i0.hdslb.com/bfs/activity-plat/static/b9vgSxGaAg.png
 // @description    🔥功能介绍🔥：🎉 1、支持B站所有激励计划，是否成功取决于b站接口是否更新，与游戏版本无关；🎉 2、打开对应一个兑换码页面自动运行；
