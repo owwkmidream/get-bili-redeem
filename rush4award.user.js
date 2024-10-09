@@ -685,7 +685,11 @@
         // 如果找不到指定的cookie，返回空字符串
         return "";
     }
- 
+     // 获取info所需的参数
+     const params = {
+        task_id: new URLSearchParams(window.location.search).get("task_id") || "",
+        web_location: document.querySelector('meta[name="spm_prefix"]').content || ""
+    };
     const y = "d569546b86c252:db:9bc7e99c5d71e5",
         g = "557251g796:g54:f:ee94g8fg969e2de",
         getwRid = () => {
