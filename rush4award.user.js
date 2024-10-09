@@ -5,7 +5,7 @@
 // @match       https://www.bilibili.com/blackboard/new-award-exchange.html?task_id=*
 // @require     https://cdn.bootcdn.net/ajax/libs/axios/1.7.2/axios.js
 // @grant       GM_addStyle
-// @version     2.0.1
+// @version     2.1.0
 // @author      vurses
 // @icon         https://i0.hdslb.com/bfs/activity-plat/static/b9vgSxGaAg.png
 // @description    🔥功能介绍🔥：🎉 1、支持B站所有激励计划，是否成功取决于b站接口是否更新，与游戏版本无关；🎉 2、打开对应一个兑换码页面自动运行；
@@ -525,8 +525,8 @@
         const { imgKey: n, subKey: r } = (function(t) {
             var e;
             // key硬编码,将来可能需要更换key获取方式
-            // if (t.useAssignKey)
-            if (true)
+            if (t.useAssignKey)
+            // if (true)
                 return {
                     imgKey: t.wbiImgKey,
                     subKey: t.wbiSubKey
@@ -685,15 +685,11 @@
         // 如果找不到指定的cookie，返回空字符串
         return "";
     }
-    // 获取info所需的参数
-    const params = {
-        task_id: new URLSearchParams(window.location.search).get("task_id") || "",
-        web_location: document.querySelector('meta[name="spm_prefix"]').content || ""
-    };
+ 
     const y = "d569546b86c252:db:9bc7e99c5d71e5",
         g = "557251g796:g54:f:ee94g8fg969e2de",
         getwRid = () => {
-            const i = generateWBISign(params || {}, {
+            const i = generateWBISign({}, {
                 wbiImgKey: caesar(y),
                 wbiSubKey: caesar(g)
             });
