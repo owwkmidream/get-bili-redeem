@@ -5,7 +5,7 @@
 // @match       https://www.bilibili.com/blackboard/new-award-exchange.html?task_id=*
 // @require     https://unpkg.com/axios@1.7.2/dist/axios.min.js
 // @grant       GM_addStyle
-// @version     2.1.1
+// @version     2.1.2
 // @author      vurses
 // @icon         https://i0.hdslb.com/bfs/activity-plat/static/b9vgSxGaAg.png
 // @description    🔥功能介绍🔥：🎉 1、支持B站所有激励计划，是否成功取决于b站接口是否更新，与游戏版本无关；🎉 2、打开对应一个兑换码页面自动运行；
@@ -692,8 +692,8 @@
     };
     const y = "d569546b86c252:db:9bc7e99c5d71e5",
         g = "557251g796:g54:f:ee94g8fg969e2de",
-        getwRid = () => {
-            const i = generateWBISign({}, {
+        getwRid = (p={}) => {
+            const i = generateWBISign(p, {
                 wbiImgKey: caesar(y),
                 wbiSubKey: caesar(g)
             });
@@ -746,12 +746,26 @@
             }
         }
     });
+    const http_info = axios.create({
+        baseURL: "https://api.bilibili.com",
+        timeout: 5000,
+        withCredentials: "true",
+    });
     // 请求拦截器
     http.interceptors.request.use((config) => {
         // 避免浏览器对请求进行缓存
         config.params = {
             ...config.params,
             ...getwRid()
+        };
+        return config;
+    });
+    http_info.interceptors.request.use((config) => {
+        // 避免浏览器对请求进行缓存
+        config.params = {
+            ...config.params,
+            ...params,
+            ...getwRid(params)
         };
         return config;
     });
@@ -764,12 +778,8 @@
             .click();
         // 获取activity_id
         activity_id = await
-        http
-            .get("/x/activity_components/mission/info", {
-                params: {
-                    ...params
-                }
-            })
+        http_info
+            .get("/x/activity_components/mission/info")
             .then(function(response) {
                 return response.data.data.act_id;
             })
@@ -817,12 +827,8 @@
         }, Time); //请求频率
         // 定时获取stock数量
         let getStockNumTimer = setInterval(() => {
-            http
-                .get("/x/activity_components/mission/info", {
-                    params: {
-                        ...params
-                    }
-                })
+            http_info
+                .get("/x/activity_components/mission/info")
                 .then((info) => {
                     let stockNum = info.data.data.stock_info.day_stock || 0;
                     createToast("info", `当日剩余量：${stockNum}%`);
