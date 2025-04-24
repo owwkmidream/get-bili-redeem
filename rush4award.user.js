@@ -45,7 +45,7 @@ const workerJs = function () {
   }
   const manager = new TimerManager();
   self.addEventListener("message", function (e) {
-      manager.set("receiveTask", () => self.postMessage("signal"), e.data);
+    manager.set("receiveTask", () => self.postMessage("signal"), e.data);
   });
 };
 
@@ -88,8 +88,9 @@ window.fetch = function (input, init = {}) {
     url = input.url;
   }
   if (url.includes("/x/activity_components/mission/receive")) {
-    return originalFetch.call(this, input, init).then(
-      (res) => {
+    return originalFetch
+      .call(this, input, init)
+      .then((res) => {
         res
           .clone()
           .json()
@@ -101,9 +102,10 @@ window.fetch = function (input, init = {}) {
             }
           });
         return res;
-      },
-      (err) => err
-    );
+      })
+      .catch((e) => {
+        console.log(e);
+      });
   }
   return originalFetch.call(this, input, init);
 };
@@ -120,7 +122,7 @@ window.addEventListener("load", function () {
   });
   awardInstance.$watch("cdKey", function (newVal, oldVal) {
     window.fetch = originalFetch;
-    manager.cleanAll();
+    worker.terminate();
   });
   worker.addEventListener("message", function (e) {
     console.log("post to window: " + e.data);
