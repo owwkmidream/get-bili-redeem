@@ -3,7 +3,7 @@
 // @namespace   vurses
 // @license     Mit
 // @match       https://www.bilibili.com/blackboard/new-award-exchange.html?task_id=*
-// @version     3.1.0
+// @version     3.2.0
 // @author      layenh
 // @icon        https://i0.hdslb.com/bfs/activity-plat/static/b9vgSxGaAg.png
 // @homepage    https://github.com/vruses/get-bili-redeem
