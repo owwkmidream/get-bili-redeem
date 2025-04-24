@@ -15,33 +15,44 @@
 const ReceiveTime = 1000;
 const SlowerTime = 10000;
 
-class TimerManager {
-  constructor() {
-    this.timers = new Map();
-  }
-  set(key, callback, delay) {
-    this.clean(key);
-    const id = setInterval(() => {
-      callback();
-    }, delay);
-    this.timers.set(key, id);
-  }
-  clean(key) {
-    if (this.timers.has(key)) {
-      clearInterval(this.timers.get(key));
-      this.timers.delete(key);
+const workerJs = function () {
+  class TimerManager {
+    constructor() {
+      this.timers = new Map();
+    }
+    set(key, callback, delay) {
+      this.clean(key);
+      const id = setTimeout(() => {
+        callback();
+      }, delay);
+      this.timers.set(key, id);
+    }
+    clean(key) {
+      if (this.timers.has(key)) {
+        clearTimeout(this.timers.get(key));
+        this.timers.delete(key);
+      }
+    }
+    cleanAll() {
+      for (let id of this.timers.values()) {
+        clearTimeout(id);
+      }
+      this.timers.clear();
+    }
+    has(key) {
+      return this.timers.has(key);
     }
   }
-  cleanAll() {
-    for (let id of this.timers.values()) {
-      clearInterval(id);
-    }
-    this.timers.clear();
-  }
-  has(key) {
-    return this.timers.has(key);
-  }
-}
+  const manager = new TimerManager();
+  self.addEventListener("message", function (e) {
+      manager.set("receiveTask", () => self.postMessage("signal"), e.data);
+  });
+};
+
+workerJs.toString();
+const blob = new Blob([`(${workerJs})()`], { type: "application/javascript" });
+const url = URL.createObjectURL(blob);
+const worker = new Worker(url);
 
 const originalCall = Function.prototype.call;
 
@@ -58,6 +69,8 @@ Function.prototype.call = function (...args) {
       `setCommonDialog(t){b.commonErrorDialog=t},`,
       `setCommonDialog(t){},`
     );
+    // 防止不再弹出验证码
+    temp = temp.replace(`e.destroy()`, ``);
     temp = eval("(" + temp + ")");
     return originalCall.apply(temp, args);
   }
@@ -82,17 +95,9 @@ window.fetch = function (input, init = {}) {
           .json()
           .then((res) => {
             if (res.code === 202100) {
-              manager.set(
-                "receiveTask",
-                () => awardInstance.handelReceive(),
-                SlowerTime
-              );
+              worker.postMessage(SlowerTime);
             } else {
-              manager.set(
-                "receiveTask",
-                () => awardInstance.handelReceive(),
-                ReceiveTime
-              );
+              worker.postMessage(ReceiveTime);
             }
           });
         return res;
@@ -103,11 +108,22 @@ window.fetch = function (input, init = {}) {
   return originalFetch.call(this, input, init);
 };
 
-const manager = new TimerManager();
-
 window.addEventListener("load", function () {
-  manager.set("receiveTask", () => awardInstance.handelReceive(), ReceiveTime);
+  if (awardInstance.cdKey) {
+    return;
+  }
+  setTimeout(() => {
+    awardInstance.handelReceive();
+  }, 1000);
   awardInstance.$watch("pageError", function (newVal, oldVal) {
     this.pageError = false;
+  });
+  awardInstance.$watch("cdKey", function (newVal, oldVal) {
+    window.fetch = originalFetch;
+    manager.cleanAll();
+  });
+  worker.addEventListener("message", function (e) {
+    console.log("post to window: " + e.data);
+    awardInstance.handelReceive();
   });
 });
