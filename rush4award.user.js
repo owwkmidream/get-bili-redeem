@@ -3,7 +3,7 @@
 // @namespace   vurses
 // @license     Mit
 // @match       https://www.bilibili.com/blackboard/new-award-exchange.html?task_id=*
-// @version     3.2.0
+// @version     3.3.0
 // @author      layenh
 // @icon        https://i0.hdslb.com/bfs/activity-plat/static/b9vgSxGaAg.png
 // @homepage    https://github.com/vruses/get-bili-redeem
@@ -13,7 +13,7 @@
 // @description 🔥功能介绍：1、支持B站所有激励计划，是否成功取决于b站接口是否更新，与游戏版本无关；2、根据验证码通过情况自适应请求速度
 // ==/UserScript==
 const ReceiveTime = 1000;
-const SlowerTime = 10000;
+const SlowerTime = 50000;
 
 const workerJs = function () {
   class TimerManager {
@@ -62,7 +62,9 @@ Function.prototype.call = function (...args) {
     temp.indexOf("this.$nextTick(()=>{}),");
     temp = temp.replace(
       `this.$nextTick(()=>{}),`,
-      (res) => res + "Object.assign(window,{awardInstance:this}),"
+      (res) =>
+        res +
+        "Object.assign(window,{awardInstance:this}),Object.assign(window,{utils:v}),"
     );
     // 禁止pub&notify错误页消息
     temp = temp.replace(
@@ -96,6 +98,7 @@ window.fetch = function (input, init = {}) {
           .json()
           .then((res) => {
             if (res.code === 202100) {
+              document.querySelector("a.geetest_close")?.click()
               worker.postMessage(SlowerTime);
             } else {
               worker.postMessage(ReceiveTime);
@@ -114,9 +117,20 @@ window.addEventListener("load", function () {
   if (awardInstance.cdKey) {
     return;
   }
-  setTimeout(() => {
-    awardInstance.handelReceive();
-  }, 1000);
+  const loopRequest = function () {
+    return new Promise((res, rej) => {
+      setTimeout(res, 1000);
+    })
+      .then(() => {
+        awardInstance.handelReceive();
+      })
+      .catch((e) => {
+        console.log(e);
+        loopRequest();
+      });
+  };
+  loopRequest();
+  console.log(awardInstance)
   awardInstance.$watch("pageError", function (newVal, oldVal) {
     this.pageError = false;
   });
