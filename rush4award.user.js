@@ -3,7 +3,7 @@
 // @namespace   vurses
 // @license     Mit
 // @match       https://www.bilibili.com/blackboard/new-award-exchange.html?task_id=*
-// @version     3.5.0
+// @version     3.5.1
 // @author      layenh
 // @icon        https://i0.hdslb.com/bfs/activity-plat/static/b9vgSxGaAg.png
 // @homepage    https://github.com/vruses/get-bili-redeem
@@ -190,7 +190,7 @@ window.addEventListener("load", function () {
     if (e.data === "receiveTask") {
       awardInstance.handelReceive();
     } else if (e.data === "getInfoTask") {
-      utils.getBounsInfo("6ERA4wloghv5rn00").then((res) => {
+      utils.getBounsInfo(awardInstance.taskId).then((res) => {
         totalStockEl.textContent = `总剩余量：${res.stock_info.total_stock}%`;
         cdKeyEl.textContent = `cdKey：${awardInstance.cdKey}`;
       });
