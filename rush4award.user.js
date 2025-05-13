@@ -157,7 +157,7 @@ window.addEventListener("load", function () {
   // 文字可选中
   document.querySelector(".award-wrap").style.userSelect = "text";
   document.querySelector(".award-wrap").append(awardPreviewEl);
-  if (awardInstance.cdKey) {
+  if (awardInstance?.cdKey) {
     return;
   }
   const loopRequest = function () {
