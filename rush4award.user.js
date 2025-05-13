@@ -3,7 +3,7 @@
 // @namespace   vurses
 // @license     Mit
 // @match       https://www.bilibili.com/blackboard/new-award-exchange.html?task_id=*
-// @version     3.4.2
+// @version     3.5.0
 // @author      layenh
 // @icon        https://i0.hdslb.com/bfs/activity-plat/static/b9vgSxGaAg.png
 // @homepage    https://github.com/vruses/get-bili-redeem
@@ -15,6 +15,7 @@
 // @description 🔥功能介绍：1、支持B站所有激励计划，是否成功取决于b站接口是否更新，与游戏版本无关；2、根据验证码通过情况自适应请求速度
 // ==/UserScript==
 
+// utils.request(p)=>info,inner
 const storage = {
   set(key, value) {
     try {
@@ -68,8 +69,13 @@ const workerJs = function () {
     }
   }
   const manager = new TimerManager();
+  // 根据taskName设置定时
   self.addEventListener("message", function (e) {
-    manager.set("receiveTask", () => self.postMessage("signal"), e.data);
+    manager.set(
+      e.data.taskName,
+      () => self.postMessage(e.data.taskName),
+      e.data.time
+    );
   });
 };
 
@@ -123,9 +129,9 @@ window.fetch = function (input, init = {}) {
           .then((res) => {
             if (res.code === 202100) {
               document.querySelector("a.geetest_close")?.click();
-              worker.postMessage(SlowerTime);
+              worker.postMessage({ taskName: "receiveTask", time: SlowerTime });
             } else {
-              worker.postMessage(ReceiveTime);
+              worker.postMessage({ taskName: "receiveTask", time: ReceiveTime });
             }
           });
         return res;
@@ -138,6 +144,19 @@ window.fetch = function (input, init = {}) {
 };
 
 window.addEventListener("load", function () {
+  // 插入到页面的一些信息
+  const totalStockEl = document.createElement("p");
+  totalStockEl.className = "extra-info";
+  totalStockEl.textContent = `总剩余量: ${"未获取"}`;
+  const cdKeyEl = document.createElement("p");
+  cdKeyEl.className = "extra-info";
+  cdKeyEl.textContent = `cdKey: ${"未获取"}`;
+  const awardPreviewEl = document.createElement("div");
+  awardPreviewEl.className = "award-preview";
+  awardPreviewEl.append(cdKeyEl, totalStockEl);
+  // 文字可选中
+  document.querySelector(".award-wrap").style.userSelect = "text";
+  document.querySelector(".award-wrap").append(awardPreviewEl);
   if (awardInstance.cdKey) {
     return;
   }
@@ -154,6 +173,10 @@ window.addEventListener("load", function () {
       });
   };
   loopRequest();
+  // 定时获取新的信息
+  setInterval(() => {
+    worker.postMessage({ taskName: "getInfoTask", time: 0 });
+  }, 3000);
   console.log(awardInstance);
   awardInstance.$watch("pageError", function (newVal, oldVal) {
     this.pageError = false;
@@ -164,7 +187,14 @@ window.addEventListener("load", function () {
   });
   worker.addEventListener("message", function (e) {
     console.log("post to window: " + e.data);
-    awardInstance.handelReceive();
+    if (e.data === "receiveTask") {
+      awardInstance.handelReceive();
+    } else if (e.data === "getInfoTask") {
+      utils.getBounsInfo("6ERA4wloghv5rn00").then((res) => {
+        totalStockEl.textContent = `总剩余量：${res.stock_info.total_stock}%`;
+        cdKeyEl.textContent = `cdKey：${awardInstance.cdKey}`;
+      });
+    }
   });
 });
 
