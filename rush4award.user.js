@@ -3,17 +3,41 @@
 // @namespace   vurses
 // @license     Mit
 // @match       https://www.bilibili.com/blackboard/new-award-exchange.html?task_id=*
-// @version     3.3.0
+// @version     3.4.0
 // @author      layenh
 // @icon        https://i0.hdslb.com/bfs/activity-plat/static/b9vgSxGaAg.png
 // @homepage    https://github.com/vruses/get-bili-redeem
 // @supportURL  https://github.com/vruses/get-bili-redeem/issues
+// @require     https://update.greasyfork.org/scripts/535838/1588053/NumberInput.js
+// @require     https://update.greasyfork.org/scripts/535840/1588055/FloatButton.js
 // @run-at      document-start
 // @grant       none
 // @description 🔥功能介绍：1、支持B站所有激励计划，是否成功取决于b站接口是否更新，与游戏版本无关；2、根据验证码通过情况自适应请求速度
 // ==/UserScript==
-const ReceiveTime = 1000;
-const SlowerTime = 50000;
+
+const storage = {
+  set(key, value) {
+    try {
+      const data = JSON.stringify(value);
+      localStorage.setItem(key, data);
+    } catch (e) {
+      console.error('Storage Set Error:', e);
+    }
+  },
+
+  get(key, defaultValue = null) {
+    try {
+      const data = localStorage.getItem(key);
+      return data !== null ? JSON.parse(data) : defaultValue;
+    } catch (e) {
+      console.error('Storage Get Error:', e);
+      return defaultValue;
+    }
+  }
+};
+
+const ReceiveTime = storage.get("ReceiveTime", 1000);
+const SlowerTime = storage.get("SlowerTime", 10000);
 
 const workerJs = function () {
   class TimerManager {
@@ -98,7 +122,7 @@ window.fetch = function (input, init = {}) {
           .json()
           .then((res) => {
             if (res.code === 202100) {
-              document.querySelector("a.geetest_close")?.click()
+              document.querySelector("a.geetest_close")?.click();
               worker.postMessage(SlowerTime);
             } else {
               worker.postMessage(ReceiveTime);
@@ -130,7 +154,7 @@ window.addEventListener("load", function () {
       });
   };
   loopRequest();
-  console.log(awardInstance)
+  console.log(awardInstance);
   awardInstance.$watch("pageError", function (newVal, oldVal) {
     this.pageError = false;
   });
@@ -143,3 +167,52 @@ window.addEventListener("load", function () {
     awardInstance.handelReceive();
   });
 });
+
+// 在修改间隔后进行存储
+// 每次请求发起的间隔
+const receiveInput = document.createElement("input-number");
+receiveInput.value = ReceiveTime / 1000;
+receiveInput._value = receiveInput.value;
+Object.defineProperty(receiveInput, "value", {
+  get() {
+    return this._value;
+  },
+  set(value) {
+    console.log("receive:" + value);
+    storage.set("ReceiveTime", value * 1000);
+    this._value = value;
+  },
+});
+// 每次验证使用的时间
+const validateInput = document.createElement("input-number");
+validateInput.value = SlowerTime / 1000;
+validateInput._value = validateInput.value;
+Object.defineProperty(validateInput, "value", {
+  get() {
+    return this._value;
+  },
+  set(value) {
+    console.log("validate:" + value);
+    storage.set("SlowerTime", value * 1000);
+    this._value = value;
+  },
+});
+// 请求插槽
+const intervalFaster = document.createElement("div");
+intervalFaster.slot = "interval-faster";
+intervalFaster.style.display = "flex";
+intervalFaster.style.alignItems = "center";
+intervalFaster.innerHTML = `<span style="width: 70px">请求间隔</span>`;
+// 验证插槽
+const intervalSlower = document.createElement("div");
+intervalSlower.slot = "interval-slower";
+intervalSlower.style.display = "flex";
+intervalSlower.style.alignItems = "center";
+intervalSlower.innerHTML = `<span style="width: 70px">验证间隔</span>`;
+
+intervalFaster.append(receiveInput);
+intervalSlower.append(validateInput);
+
+const floatButton = document.createElement("float-button");
+floatButton.append(intervalFaster, intervalSlower);
+document.documentElement.append(floatButton);
