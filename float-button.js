@@ -8,6 +8,9 @@ class FloatButton extends HTMLElement {
     const style = document.createElement("style");
     style.textContent = `
       :host {
+        /* 避免外部css的影响 */
+        all: initial;
+        font-size: normal;
         position: fixed;
         left: 5px;
         top: 20%;
