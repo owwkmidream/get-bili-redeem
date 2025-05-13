@@ -3,7 +3,7 @@
 // @namespace   vurses
 // @license     Mit
 // @match       https://www.bilibili.com/blackboard/new-award-exchange.html?task_id=*
-// @version     3.4.1
+// @version     3.4.2
 // @author      layenh
 // @icon        https://i0.hdslb.com/bfs/activity-plat/static/b9vgSxGaAg.png
 // @homepage    https://github.com/vruses/get-bili-redeem
@@ -36,8 +36,8 @@ const storage = {
   },
 };
 
-const ReceiveTime = storage.get("ReceiveTime", 1000);
-const SlowerTime = storage.get("SlowerTime", 10000);
+let ReceiveTime = storage.get("ReceiveTime", 1000);
+let SlowerTime = storage.get("SlowerTime", 10000);
 
 const workerJs = function () {
   class TimerManager {
@@ -179,7 +179,7 @@ Object.defineProperty(receiveInput, "value", {
   },
   set(value) {
     console.log("receive:" + value);
-    worker.postMessage(value * 1000);
+    ReceiveTime = value * 1000;
     storage.set("ReceiveTime", value * 1000);
     this._value = value;
   },
@@ -194,7 +194,7 @@ Object.defineProperty(validateInput, "value", {
   },
   set(value) {
     console.log("validate:" + value);
-    worker.postMessage(value * 1000);
+    SlowerTime = value * 1000;
     storage.set("SlowerTime", value * 1000);
     this._value = value;
   },
