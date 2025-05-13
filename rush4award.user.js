@@ -3,7 +3,7 @@
 // @namespace   vurses
 // @license     Mit
 // @match       https://www.bilibili.com/blackboard/new-award-exchange.html?task_id=*
-// @version     3.4.0
+// @version     3.4.1
 // @author      layenh
 // @icon        https://i0.hdslb.com/bfs/activity-plat/static/b9vgSxGaAg.png
 // @homepage    https://github.com/vruses/get-bili-redeem
@@ -21,7 +21,7 @@ const storage = {
       const data = JSON.stringify(value);
       localStorage.setItem(key, data);
     } catch (e) {
-      console.error('Storage Set Error:', e);
+      console.error("Storage Set Error:", e);
     }
   },
 
@@ -30,10 +30,10 @@ const storage = {
       const data = localStorage.getItem(key);
       return data !== null ? JSON.parse(data) : defaultValue;
     } catch (e) {
-      console.error('Storage Get Error:', e);
+      console.error("Storage Get Error:", e);
       return defaultValue;
     }
-  }
+  },
 };
 
 const ReceiveTime = storage.get("ReceiveTime", 1000);
@@ -179,6 +179,7 @@ Object.defineProperty(receiveInput, "value", {
   },
   set(value) {
     console.log("receive:" + value);
+    worker.postMessage(value * 1000);
     storage.set("ReceiveTime", value * 1000);
     this._value = value;
   },
@@ -193,6 +194,7 @@ Object.defineProperty(validateInput, "value", {
   },
   set(value) {
     console.log("validate:" + value);
+    worker.postMessage(value * 1000);
     storage.set("SlowerTime", value * 1000);
     this._value = value;
   },
