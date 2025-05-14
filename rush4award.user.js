@@ -3,129 +3,337 @@
 // @namespace   vurses
 // @license     Mit
 // @match       https://www.bilibili.com/blackboard/new-award-exchange.html?task_id=*
-// @version     3.2.0
+// @version     3.2.1
 // @author      layenh
 // @icon        https://i0.hdslb.com/bfs/activity-plat/static/b9vgSxGaAg.png
 // @homepage    https://github.com/vruses/get-bili-redeem
 // @supportURL  https://github.com/vruses/get-bili-redeem/issues
 // @run-at      document-start
 // @grant       none
-// @description 🔥功能介绍：1、支持B站所有激励计划，是否成功取决于b站接口是否更新，与游戏版本无关；2、根据验证码通过情况自适应请求速度
+// @description 🔥功能介绍：1、支持B站所有激励计划，是否成功取决于b站接口是否更新，与游戏版本无关；2、根据验证码通过情况自适应请求速度；3、支持定时兑换功能
 // ==/UserScript==
-const ReceiveTime = 1000;
-const SlowerTime = 10000;
 
+// 定时兑换的时间设置，格式为"HH:MM:SS:mmm"，例如"01:00:00:000"表示1点整定时，设置为"0"则不启用定时功能
+const TimerTime = "01:00:00:200"; // 在这里设置定时时间
+
+// 定义领取奖励的时间间隔（毫秒）
+const ReceiveTime = 1000; // 正常请求间隔：1秒
+const SlowerTime = 10000; // 遇到验证码后的较慢请求间隔：10秒
+
+// 定义Web Worker的代码，用于在后台线程中管理定时任务
 const workerJs = function () {
+  // TimerManager类：用于管理定时器
   class TimerManager {
     constructor() {
-      this.timers = new Map();
+      this.timers = new Map(); // 使用Map存储定时器ID
     }
+
+    // 设置定时器
     set(key, callback, delay) {
-      this.clean(key);
+      this.clean(key); // 清除可能存在的同名定时器
       const id = setTimeout(() => {
         callback();
       }, delay);
-      this.timers.set(key, id);
+      this.timers.set(key, id); // 存储定时器ID
     }
+
+    // 清除特定定时器
     clean(key) {
       if (this.timers.has(key)) {
         clearTimeout(this.timers.get(key));
         this.timers.delete(key);
       }
     }
+
+    // 清除所有定时器
     cleanAll() {
       for (let id of this.timers.values()) {
         clearTimeout(id);
       }
       this.timers.clear();
     }
+
+    // 检查是否存在特定定时器
     has(key) {
       return this.timers.has(key);
     }
   }
+
+  // 创建定时器管理器实例
   const manager = new TimerManager();
+  let countdownInterval = null;
+
+  // 监听来自主线程的消息
   self.addEventListener("message", function (e) {
-    manager.set("receiveTask", () => self.postMessage("signal"), e.data);
+    const data = e.data;
+
+    // 处理普通领取任务的定时器
+    if (typeof data === 'number') {
+      manager.set("receiveTask", () => self.postMessage({type: "signal"}), data);
+    }
+    // 处理定时任务
+    else if (data.type === "timerTask") {
+      if (data.timerTime === "0") return; // 如果定时设置为0，不处理
+
+      // 解析定时时间
+      const [hours, minutes, seconds, milliseconds] = data.timerTime.split(":").map(Number);
+
+      // 计算目标时间
+      const now = new Date();
+      const targetTime = new Date();
+      targetTime.setHours(hours, minutes, seconds, milliseconds);
+
+      // 如果目标时间已经过去，则设置为明天的同一时间
+      if (targetTime <= now) {
+        targetTime.setDate(targetTime.getDate() + 1);
+      }
+
+      // 计算时间差（毫秒）
+      let timeLeft = targetTime - now;
+
+      // 设置定时器
+      manager.set("scheduledTask", () => {
+        self.postMessage({type: "timerReached"});
+      }, timeLeft);
+
+      // 设置每秒倒计时更新
+      if (countdownInterval) clearInterval(countdownInterval);
+      countdownInterval = setInterval(() => {
+        timeLeft -= 10;
+
+        if (timeLeft <= 0) {
+          clearInterval(countdownInterval);
+          countdownInterval = null;
+          return;
+        }
+
+        // 计算剩余时间
+        const h = Math.floor(timeLeft / 3600000);
+        const m = Math.floor((timeLeft % 3600000) / 60000);
+        const s = Math.floor((timeLeft % 60000) / 1000);
+        const ms = timeLeft % 1000;
+
+        // 发送倒计时更新
+        self.postMessage({
+          type: "countdown",
+          timeLeft: `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}:${ms.toString().padStart(3, '0')}`,
+          targetTime: targetTime.toLocaleString()
+        });
+      }, 10);
+    }
   });
 };
 
+// 转换Worker函数为字符串
 workerJs.toString();
+// 创建一个Blob对象，包含Worker代码
 const blob = new Blob([`(${workerJs})()`], { type: "application/javascript" });
+// 创建一个URL对象，指向Blob
 const url = URL.createObjectURL(blob);
+// 使用URL创建Web Worker
 const worker = new Worker(url);
 
+// 保存原始的Function.prototype.call方法
 const originalCall = Function.prototype.call;
 
+// 重写Function.prototype.call方法
 Function.prototype.call = function (...args) {
+  // 检查当前函数名是否为"fb94"（B站奖励组件的关键函数）
   if (this.name === "fb94") {
-    let temp = this.toString();
-    temp.indexOf("this.$nextTick(()=>{}),");
+    let temp = this.toString(); // 获取函数的字符串表示
+    temp.indexOf("this.$nextTick(()=>{}),"); // 查找特定模式（这行代码没有实际效果，可能是调试遗留）
+
+    // 修改函数代码，将组件实例暴露到window对象上
     temp = temp.replace(
       `this.$nextTick(()=>{}),`,
       (res) => res + "Object.assign(window,{awardInstance:this}),"
     );
-    // 禁止pub&notify错误页消息
+
+    // 禁用错误对话框显示
     temp = temp.replace(
       `setCommonDialog(t){b.commonErrorDialog=t},`,
       `setCommonDialog(t){},`
     );
-    // 防止不再弹出验证码
+
+    // 防止验证码组件被销毁
     temp = temp.replace(`e.destroy()`, ``);
+
+    // 将修改后的字符串转换回函数
     temp = eval("(" + temp + ")");
+
+    // 使用修改后的函数替代原函数
     return originalCall.apply(temp, args);
   }
+  // 对其他函数，正常调用原始的call方法
   return originalCall.apply(this, args);
 };
 
+// 保存原始的fetch函数
 const originalFetch = window.fetch;
 
+// 重写fetch函数
 window.fetch = function (input, init = {}) {
   let url = "";
-  // 处理 input 可能是字符串或 Request 对象
+  // 处理input参数可能是字符串或Request对象的情况
   if (typeof input === "string") {
     url = input;
   } else if (input instanceof Request) {
     url = input.url;
   }
+
+  // 检查是否是领取奖励的请求
   if (url.includes("/x/activity_components/mission/receive")) {
     return originalFetch
       .call(this, input, init)
       .then((res) => {
+        // 克隆响应并解析JSON
         res
           .clone()
           .json()
           .then((res) => {
-            if (res.code === 202100) {
-              worker.postMessage(SlowerTime);
+            // 根据返回码调整请求速度
+            console.log("%c Rush4award %c ", "background: purple; color: white; padding: 2px 4px; border-radius: 3px;", "color: black;", res);
+            if (res.code === 202100) { // 202100通常表示需要验证码
+              worker.postMessage(SlowerTime); // 减慢请求速度
             } else {
-              worker.postMessage(ReceiveTime);
+              worker.postMessage(ReceiveTime); // 使用正常请求速度
             }
           });
         return res;
       })
       .catch((e) => {
-        console.log(e);
+        console.log("%c Rush4award %c 请求错误", "background: purple; color: white; padding: 2px 4px; border-radius: 3px;", "color: black;", e);
       });
   }
+  // 对其他请求，正常调用原始的fetch函数
   return originalFetch.call(this, input, init);
 };
 
-window.addEventListener("load", function () {
-  if (awardInstance.cdKey) {
-    return;
+// 启用已禁用的按钮
+function enableDisabledButton() {
+  const disabledButton = document.querySelector('.button.disable');
+  if (disabledButton) {
+    disabledButton.classList.remove('disable');
+    console.log("%c Rush4award %c 已启用按钮", "background: purple; color: white; padding: 2px 4px; border-radius: 3px;", "color: green;");
+    setTimeout(enableDisabledButton, 500); // 如果未找到按钮，0.5秒后重试
+  } else {
+    setTimeout(enableDisabledButton, 500); // 如果未找到按钮，0.5秒后重试
   }
-  setTimeout(() => {
-    awardInstance.handelReceive();
-  }, 1000);
-  awardInstance.$watch("pageError", function (newVal, oldVal) {
-    this.pageError = false;
-  });
-  awardInstance.$watch("cdKey", function (newVal, oldVal) {
-    window.fetch = originalFetch;
-    worker.terminate();
-  });
-  worker.addEventListener("message", function (e) {
-    console.log("post to window: " + e.data);
-    awardInstance.handelReceive();
-  });
+}
+
+// 创建倒计时显示元素
+function createCountdownDisplay() {
+  const sectionTitle = document.querySelector('.section-title');
+  if (sectionTitle) {
+    // 创建Patch标记
+    const patchSpan = document.createElement('span');
+    patchSpan.textContent = ' Patch';
+    patchSpan.style.color = 'purple';
+    patchSpan.style.display = 'inline';
+    sectionTitle.appendChild(patchSpan);
+
+    // 创建倒计时容器
+    if (TimerTime !== "0") {
+      const countdownDiv = document.createElement('div');
+      countdownDiv.id = 'rush4award-countdown';
+      countdownDiv.style.color = 'red';
+      countdownDiv.style.fontWeight = 'bold';
+      countdownDiv.style.marginTop = '5px';
+      countdownDiv.textContent = '倒计时加载中...';
+      sectionTitle.parentNode.insertBefore(countdownDiv, sectionTitle.nextSibling);
+    }
+  } else {
+    setTimeout(createCountdownDisplay, 500); // 如果未找到标题，0.5秒后重试
+  }
+}
+
+// 页面加载完成后执行
+window.addEventListener("load", function () {
+  // 检查awardInstance是否已定义
+  let checkCount = 0; // 检查次数计数
+  const maxChecks = 30; // 最大检查次数(30次 * 100ms = 3秒)
+
+  const checkAwardInstance = () => {
+    if (typeof awardInstance !== 'undefined') {
+
+      // 如果已经有CD Key，不执行自动领取
+      if (awardInstance.cdKey) {
+        return;
+      }
+
+      console.log("%c Rush4award %c 页面加载完成", "background: purple; color: white; padding: 2px 4px; border-radius: 3px;", "color: black;");
+
+      // 创建倒计时显示
+      createCountdownDisplay();
+
+      // 启用已禁用的按钮
+      enableDisabledButton();
+
+      // 如果定时功能已启用，则发送定时任务给Worker
+      if (TimerTime !== "0") {
+        console.log("%c Rush4award %c 定时功能已启用，设定时间为: " + TimerTime, "background: purple; color: white; padding: 2px 4px; border-radius: 3px;", "color: blue;");
+        worker.postMessage({
+          type: "timerTask",
+          timerTime: TimerTime
+        });
+      } else {
+        // 未启用定时，延迟1秒后执行第一次领取
+        setTimeout(() => {
+          awardInstance.handelReceive();
+        }, 1000);
+      }
+
+      // 监听pageError属性变化，自动隐藏错误
+      awardInstance.$watch("pageError", function (newVal, oldVal) {
+        this.pageError = false;
+      });
+
+      // 监听cdKey属性变化，当获取到cdKey时，恢复原始fetch并终止Worker
+      awardInstance.$watch("cdKey", function (newVal, oldVal) {
+        window.fetch = originalFetch;
+        worker.terminate();
+      });
+
+      // 监听Worker消息，收到消息后执行领取操作
+      worker.addEventListener("message", function (e) {
+        const data = e.data;
+
+        // 处理不同类型的消息
+        if (typeof data === 'string' || data.type === "signal") {
+          console.log("%c Rush4award %c 收到信号: 执行领取操作", "background: purple; color: white; padding: 2px 4px; border-radius: 3px;", "color: black;");
+          awardInstance.handelReceive();
+        }
+        // 定时时间已到
+        else if (data.type === "timerReached") {
+          console.log("%c Rush4award %c 定时时间已到！执行领取操作", "background: purple; color: white; padding: 2px 4px; border-radius: 3px;", "color: red;");
+          awardInstance.handelReceive();
+        }
+        // 更新倒计时显示
+        else if (data.type === "countdown") {
+          const countdownDiv = document.getElementById('rush4award-countdown');
+          if (countdownDiv) {
+            countdownDiv.textContent = `定时: ${data.targetTime} | 倒计时: ${data.timeLeft}`;
+          }
+          // console.log("%c Rush4award %c 倒计时: " + data.timeLeft, "background: purple; color: white; padding: 2px 4px; border-radius: 3px;", "color: blue;");
+        }
+      });
+    } else {
+      // 增加检查次数
+      checkCount++;
+
+      if (checkCount >= maxChecks) {
+        // 超过3秒(30次检查)，刷新页面
+        console.log("%c Rush4award %c 等待awardInstance超时(3秒)，刷新页面...", "background: purple; color: white; padding: 2px 4px; border-radius: 3px;", "color: red;");
+        location.reload();
+        return;
+      }
+
+      // awardInstance尚未定义，等待100ms后再次检查
+      console.log(`%c Rush4award %c 等待awardInstance初始化...(${checkCount}/${maxChecks})`, "background: purple; color: white; padding: 2px 4px; border-radius: 3px;", "color: black;");
+      setTimeout(checkAwardInstance, 100);
+    }
+  };
+
+  // 开始检查awardInstance
+  checkAwardInstance();
 });
