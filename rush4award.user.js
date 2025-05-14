@@ -3,17 +3,42 @@
 // @namespace   vurses
 // @license     Mit
 // @match       https://www.bilibili.com/blackboard/new-award-exchange.html?task_id=*
-// @version     3.2.0
+// @version     3.5.1
 // @author      layenh
 // @icon        https://i0.hdslb.com/bfs/activity-plat/static/b9vgSxGaAg.png
 // @homepage    https://github.com/vruses/get-bili-redeem
 // @supportURL  https://github.com/vruses/get-bili-redeem/issues
+// @require     https://update.greasyfork.org/scripts/535838/1588053/NumberInput.js
+// @require     https://update.greasyfork.org/scripts/535840/1588055/FloatButton.js
 // @run-at      document-start
 // @grant       none
 // @description 🔥功能介绍：1、支持B站所有激励计划，是否成功取决于b站接口是否更新，与游戏版本无关；2、根据验证码通过情况自适应请求速度
 // ==/UserScript==
-const ReceiveTime = 1000;
-const SlowerTime = 10000;
+
+// utils.request(p)=>info,inner
+const storage = {
+  set(key, value) {
+    try {
+      const data = JSON.stringify(value);
+      localStorage.setItem(key, data);
+    } catch (e) {
+      console.error("Storage Set Error:", e);
+    }
+  },
+
+  get(key, defaultValue = null) {
+    try {
+      const data = localStorage.getItem(key);
+      return data !== null ? JSON.parse(data) : defaultValue;
+    } catch (e) {
+      console.error("Storage Get Error:", e);
+      return defaultValue;
+    }
+  },
+};
+
+let ReceiveTime = storage.get("ReceiveTime", 1000);
+let SlowerTime = storage.get("SlowerTime", 10000);
 
 const workerJs = function () {
   class TimerManager {
@@ -44,8 +69,13 @@ const workerJs = function () {
     }
   }
   const manager = new TimerManager();
+  // 根据taskName设置定时
   self.addEventListener("message", function (e) {
-    manager.set("receiveTask", () => self.postMessage("signal"), e.data);
+    manager.set(
+      e.data.taskName,
+      () => self.postMessage(e.data.taskName),
+      e.data.time
+    );
   });
 };
 
@@ -62,7 +92,9 @@ Function.prototype.call = function (...args) {
     temp.indexOf("this.$nextTick(()=>{}),");
     temp = temp.replace(
       `this.$nextTick(()=>{}),`,
-      (res) => res + "Object.assign(window,{awardInstance:this}),"
+      (res) =>
+        res +
+        "Object.assign(window,{awardInstance:this}),Object.assign(window,{utils:v}),"
     );
     // 禁止pub&notify错误页消息
     temp = temp.replace(
@@ -96,9 +128,10 @@ window.fetch = function (input, init = {}) {
           .json()
           .then((res) => {
             if (res.code === 202100) {
-              worker.postMessage(SlowerTime);
+              document.querySelector("a.geetest_close")?.click();
+              worker.postMessage({ taskName: "receiveTask", time: SlowerTime });
             } else {
-              worker.postMessage(ReceiveTime);
+              worker.postMessage({ taskName: "receiveTask", time: ReceiveTime });
             }
           });
         return res;
@@ -111,12 +144,40 @@ window.fetch = function (input, init = {}) {
 };
 
 window.addEventListener("load", function () {
-  if (awardInstance.cdKey) {
+  // 插入到页面的一些信息
+  const totalStockEl = document.createElement("p");
+  totalStockEl.className = "extra-info";
+  totalStockEl.textContent = `总剩余量: ${"未获取"}`;
+  const cdKeyEl = document.createElement("p");
+  cdKeyEl.className = "extra-info";
+  cdKeyEl.textContent = `cdKey: ${"未获取"}`;
+  const awardPreviewEl = document.createElement("div");
+  awardPreviewEl.className = "award-preview";
+  awardPreviewEl.append(cdKeyEl, totalStockEl);
+  // 文字可选中
+  document.querySelector(".award-wrap").style.userSelect = "text";
+  document.querySelector(".award-wrap").append(awardPreviewEl);
+  if (awardInstance?.cdKey) {
     return;
   }
-  setTimeout(() => {
-    awardInstance.handelReceive();
-  }, 1000);
+  const loopRequest = function () {
+    return new Promise((res, rej) => {
+      setTimeout(res, 1000);
+    })
+      .then(() => {
+        awardInstance.handelReceive();
+      })
+      .catch((e) => {
+        console.log(e);
+        loopRequest();
+      });
+  };
+  loopRequest();
+  // 定时获取新的信息
+  setInterval(() => {
+    worker.postMessage({ taskName: "getInfoTask", time: 0 });
+  }, 3000);
+  console.log(awardInstance);
   awardInstance.$watch("pageError", function (newVal, oldVal) {
     this.pageError = false;
   });
@@ -126,6 +187,64 @@ window.addEventListener("load", function () {
   });
   worker.addEventListener("message", function (e) {
     console.log("post to window: " + e.data);
-    awardInstance.handelReceive();
+    if (e.data === "receiveTask") {
+      awardInstance.handelReceive();
+    } else if (e.data === "getInfoTask") {
+      utils.getBounsInfo(awardInstance.taskId).then((res) => {
+        totalStockEl.textContent = `总剩余量：${res.stock_info.total_stock}%`;
+        cdKeyEl.textContent = `cdKey：${awardInstance.cdKey}`;
+      });
+    }
   });
 });
+
+// 在修改间隔后进行存储
+// 每次请求发起的间隔
+const receiveInput = document.createElement("input-number");
+receiveInput.value = ReceiveTime / 1000;
+receiveInput._value = receiveInput.value;
+Object.defineProperty(receiveInput, "value", {
+  get() {
+    return this._value;
+  },
+  set(value) {
+    console.log("receive:" + value);
+    ReceiveTime = value * 1000;
+    storage.set("ReceiveTime", value * 1000);
+    this._value = value;
+  },
+});
+// 每次验证使用的时间
+const validateInput = document.createElement("input-number");
+validateInput.value = SlowerTime / 1000;
+validateInput._value = validateInput.value;
+Object.defineProperty(validateInput, "value", {
+  get() {
+    return this._value;
+  },
+  set(value) {
+    console.log("validate:" + value);
+    SlowerTime = value * 1000;
+    storage.set("SlowerTime", value * 1000);
+    this._value = value;
+  },
+});
+// 请求插槽
+const intervalFaster = document.createElement("div");
+intervalFaster.slot = "interval-faster";
+intervalFaster.style.display = "flex";
+intervalFaster.style.alignItems = "center";
+intervalFaster.innerHTML = `<span style="width: 70px">请求间隔</span>`;
+// 验证插槽
+const intervalSlower = document.createElement("div");
+intervalSlower.slot = "interval-slower";
+intervalSlower.style.display = "flex";
+intervalSlower.style.alignItems = "center";
+intervalSlower.innerHTML = `<span style="width: 70px">验证间隔</span>`;
+
+intervalFaster.append(receiveInput);
+intervalSlower.append(validateInput);
+
+const floatButton = document.createElement("float-button");
+floatButton.append(intervalFaster, intervalSlower);
+document.documentElement.append(floatButton);

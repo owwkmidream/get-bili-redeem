@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <script src="./float-button.js"></script>
+    <script src="./input-number.js"></script>
+  </head>
+  <body>
+    <!-- <float-button>
+      <div slot="interval-faster" style="display: flex; align-items: center">
+        <span style="width: 70px">请求间隔</span>
+        <input-number></input-number>
+      </div>
+      <div slot="interval-slower" style="display: flex; align-items: center">
+        <span style="width: 70px">验证间隔</span>
+        <input-number></input-number>
+      </div>
+    </float-button> -->
+    <script>
+      // 在修改间隔后进行存储
+      // 每次请求发起的间隔
+      const receiveInput = document.createElement("input-number");
+      receiveInput.value = 1;
+      receiveInput._value = receiveInput.value;
+      Object.defineProperty(receiveInput, "value", {
+        get() {
+          return this._value;
+        },
+        set(value) {
+          console.log("receive:" + value);
+          // GM_setValue("ReceiveTime", value);
+          this._value = value;
+        },
+      });
+      // 每次验证使用的时间
+      const validateInput = document.createElement("input-number");
+      validateInput.value = 10;
+      validateInput._value = validateInput.value;
+      Object.defineProperty(validateInput, "value", {
+        get() {
+          return this._value;
+        },
+        set(value) {
+          console.log("validate:" + value);
+          // GM_setValue("SlowerTime", value);
+          this._value = value;
+        },
+      });
+      // 请求插槽
+      const intervalFaster = document.createElement("div");
+      intervalFaster.slot = "interval-faster";
+      intervalFaster.style.display = "flex";
+      intervalFaster.style.alignItems = "center";
+      intervalFaster.innerHTML = `<span style="width: 70px">请求间隔</span>`;
+      // 验证插槽
+      const intervalSlower = document.createElement("div");
+      intervalSlower.slot = "interval-slower";
+      intervalSlower.style.display = "flex";
+      intervalSlower.style.alignItems = "center";
+      intervalSlower.innerHTML = `<span style="width: 70px">验证间隔</span>`;
+
+      intervalFaster.append(receiveInput);
+      intervalSlower.append(validateInput);
+
+      const floatButton = document.createElement("float-button");
+      floatButton.append(intervalFaster, intervalSlower);
+      document.documentElement.append(floatButton);
+    </script>
+  </body>
+</html>
