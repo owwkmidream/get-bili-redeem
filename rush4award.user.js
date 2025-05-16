@@ -3,7 +3,7 @@
 // @namespace   github.com/owwkmidream
 // @license     Mit
 // @match       https://www.bilibili.com/blackboard/new-award-exchange.html?task_id=*
-// @version     3.5.3
+// @version     3.5.5
 // @author      owwk
 // @icon        https://i0.hdslb.com/bfs/activity-plat/static/b9vgSxGaAg.png
 // @homepage    https://github.com/owwkmidream/get-bili-redeem
@@ -19,6 +19,7 @@ const TimerTime = "01:00:00:200"; // 在这里设置定时时间
 // 定义领取奖励的时间间隔（毫秒）
 const ReceiveTime = 1000; // 正常请求间隔：1秒
 const SlowerTime = 10000; // 遇到验证码后的较慢请求间隔：10秒
+const BounsInfoUpdateInterval = 2000; // 奖励信息更新间隔：2秒
 
 // 定义Web Worker的代码，用于在后台线程中管理定时任务
 const workerJs = function () {
@@ -318,26 +319,36 @@ function createBounsInfoDisplay() {
   // 创建奖励信息显示元素
   const extraInfo = document.querySelector('p.extra-info:last-child');
   if (extraInfo) {
-    // 创建剩余量显示
-    const totalStockEl = document.createElement('p');
-    totalStockEl.classList = 'extra-info total-stock';
-    totalStockEl.textContent = '总剩余量：';
-    extraInfo.parentNode.insertBefore(totalStockEl, extraInfo.nextSibling);
-
     // 创建兑换码显示
     const cdKeyEl = document.createElement('p');
     cdKeyEl.classList = 'extra-info cd-key';
-    cdKeyEl.textContent = `cdKey：`;
+    cdKeyEl.textContent = `cdKey：________`;
     extraInfo.parentNode.insertBefore(cdKeyEl, extraInfo.nextSibling);
 
+    // 创建剩余量显示
+    const stockDiv = document.createElement('div');
+    stockDiv.className = 'extra-info';
+    stockDiv.style.display = 'flex';
+    stockDiv.style.gap = '20px'
+    const totalStockEl = document.createElement('p');
+    const dayLeftEl = document.createElement('p');
+    totalStockEl.textContent = '总剩余量：__';
+    totalStockEl.classList = 'total-stock';
+    dayLeftEl.textContent = '__天'
+    dayLeftEl.classList = 'day-left';
+    stockDiv.appendChild(totalStockEl);
+    stockDiv.appendChild(Object.assign(document.createElement('p'), {textContent: '/'}));
+    stockDiv.appendChild(dayLeftEl);
+    cdKeyEl.parentNode.insertBefore(stockDiv, cdKeyEl.nextSibling);
+
     // 创建worker定时
-    window.updateBounsInfoInterval = setInterval(() => {
+    setInterval(() => {
       worker.postMessage({
         TaskName: "updateBounsInfo",
         Delay: 0,
         Data: null
       });
-    }, 1000);
+    }, BounsInfoUpdateInterval);
   } else {
     setTimeout(createBounsInfoDisplay, 500); // 如果未找到元素，0.5秒后重试
   }
@@ -407,10 +418,11 @@ function registerAllHandlers() {
 
   // 注册奖励信息更新处理器
   registerHandler("updateBounsInfo", () => {
-    const totalStockEl = document.querySelector('p.extra-info.total-stock');
-    const cdKeyEl = document.querySelector('p.extra-info.cd-key');
+    const totalStockEl = document.querySelector('p.total-stock');
+    const dayLeftEl = document.querySelector('p.day-left');
+    const cdKeyEl = document.querySelector('p.cd-key');
 
-    if (totalStockEl && cdKeyEl) {
+    if (totalStockEl && cdKeyEl && dayLeftEl) {
       if (awardInstance.bounsInfo.status === 6)
       {
         utils.getBounsHistory(awardInstance.actId).then((res) => {
@@ -423,6 +435,14 @@ function registerAllHandlers() {
       }
       utils.getBounsInfo(awardInstance.taskId).then((res) => {
         totalStockEl.textContent = `总剩余量：${res.stock_info.total_stock}%`;
+        const desc = awardInstance.awardInfo.award_description;
+        const match = desc.match(/(\d{2,}).*?(\d{2,})份/);
+        if (match) {
+          const [_, total, daily] = match;
+          const dayPercent = (daily / total) * 100;
+          const daysLeft = Math.ceil(res.stock_info.total_stock / dayPercent);
+          dayLeftEl.textContent = `${daysLeft}天`;
+        }
       });
     }
   });
