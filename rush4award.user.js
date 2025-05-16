@@ -3,7 +3,7 @@
 // @namespace   vurses
 // @license     Mit
 // @match       https://www.bilibili.com/blackboard/new-award-exchange.html?task_id=*
-// @version     3.2.1
+// @version     3.3.0
 // @author      layenh
 // @icon        https://i0.hdslb.com/bfs/activity-plat/static/b9vgSxGaAg.png
 // @homepage    https://github.com/vruses/get-bili-redeem
@@ -146,7 +146,9 @@ Function.prototype.call = function (...args) {
     // 修改函数代码，将组件实例暴露到window对象上
     temp = temp.replace(
       `this.$nextTick(()=>{}),`,
-      (res) => res + "Object.assign(window,{awardInstance:this}),"
+      (res) =>
+        res +
+        "Object.assign(window,{awardInstance:this}),Object.assign(window,{utils:v})," // 暴露
     );
 
     // 禁用错误对话框显示
@@ -194,6 +196,7 @@ window.fetch = function (input, init = {}) {
             // 根据返回码调整请求速度
             console.log("%c Rush4award %c ", "background: purple; color: white; padding: 2px 4px; border-radius: 3px;", "color: black;", res);
             if (res.code === 202100) { // 202100通常表示需要验证码
+              document.querySelector("a.geetest_close")?.click() // 关闭验证码
               worker.postMessage(SlowerTime); // 减慢请求速度
             } else {
               worker.postMessage(ReceiveTime); // 使用正常请求速度
