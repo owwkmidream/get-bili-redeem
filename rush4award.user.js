@@ -3,7 +3,7 @@
 // @namespace   github.com/owwkmidream
 // @license     Mit
 // @match       https://www.bilibili.com/blackboard/new-award-exchange.html?task_id=*
-// @version     3.5.7
+// @version     3.5.8
 // @author      owwk
 // @icon        https://i0.hdslb.com/bfs/activity-plat/static/b9vgSxGaAg.png
 // @homepage    https://github.com/owwkmidream/get-bili-redeem
@@ -78,6 +78,14 @@ const workerJs = function () {
     has(key) {
       return this.timers.has(key);
     }
+  }
+
+  // Worker内部的日志函数，通过消息发送到主线程
+  function workerLogError(message, color = "red", ...args) {
+    self.postMessage({
+      Msg: "workerError",
+      Data: { message, color, args }
+    });
   }
 
   // 创建定时器管理器实例
@@ -179,7 +187,7 @@ const workerJs = function () {
 
     // 确保消息是对象且符合规定的格式
     if (!data || typeof data !== 'object' || !data.TaskName || !('Delay' in data)) {
-      logError('Worker：收到无效消息格式: ', "red", data);
+      workerLogError('Worker：收到无效消息格式: ', "red", data);
       return;
     }
 
@@ -190,7 +198,7 @@ const workerJs = function () {
     if (handler) {
       handler(TaskName, Delay, Data);
     } else {
-      logError(`Worker: 未找到处理器，任务类型: ${TaskName}`, "red");
+      workerLogError(`Worker: 未找到处理器，任务类型: ${TaskName}`, "red");
     }
   });
 };
@@ -469,6 +477,11 @@ function registerAllHandlers() {
       const targetTime = data.targetTime;
       countdownDiv.innerHTML = `定时: ${targetTime}<br>倒计时: ${timeLeft}`;
     }
+  });
+
+  // 注册Worker错误处理器
+  registerHandler("workerError", (data) => {
+    logError(data.message, data.color, ...(data.args || []));
   });
 
   // 注册奖励信息更新处理器
