@@ -3,7 +3,7 @@
 // @namespace   github.com/owwkmidream
 // @license     Mit
 // @match       https://www.bilibili.com/blackboard/new-award-exchange.html?task_id=*
-// @version     3.4.2
+// @version     3.4.3
 // @author      owwk
 // @icon        https://i0.hdslb.com/bfs/activity-plat/static/b9vgSxGaAg.png
 // @homepage    https://github.com/owwkmidream/get-bili-redeem
@@ -275,10 +275,12 @@ function createBounsInfoDisplay() {
     extraInfo.parentNode.insertBefore(cdKeyEl, extraInfo.nextSibling);
 
     // 创建worker定时
-    worker.postMessage({
-      type: "updateBounsInfo",
-      time: 3000
-    });
+    window.updateBounsInfoInterval = setInterval(() => {
+      worker.postMessage({
+        type: "updateBounsInfo",
+        time: 0
+      });
+    }, 3000);
   } else {
     setTimeout(createBounsInfoDisplay, 500); // 如果未找到元素，0.5秒后重试
   }
