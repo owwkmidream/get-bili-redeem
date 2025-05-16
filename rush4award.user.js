@@ -3,7 +3,7 @@
 // @namespace   github.com/owwkmidream
 // @license     Mit
 // @match       https://www.bilibili.com/blackboard/new-award-exchange.html?task_id=*
-// @version     3.4.1
+// @version     3.4.2
 // @author      owwk
 // @icon        https://i0.hdslb.com/bfs/activity-plat/static/b9vgSxGaAg.png
 // @homepage    https://github.com/owwkmidream/get-bili-redeem
@@ -397,7 +397,7 @@ function initializeAward() {
         });
         utils.getBounsInfo(awardInstance.taskId).then((res) => {
           totalStockEl.textContent = `总剩余量：${res.stock_info.total_stock}%`;
-          cdKeyEl.textContent = `cdKey：${awardInstance.cdKey}`;
+          cdKeyEl.innerHTML = `cdKey：<span onclick="navigator.clipboard.writeText('${awardInstance.cdKey}')">${awardInstance.cdKey}</span>`;
         });
       }
     }
