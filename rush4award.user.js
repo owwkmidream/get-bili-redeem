@@ -83,15 +83,15 @@ const workerJs = function () {
   // 创建定时器管理器实例
   const manager = new TimerManager();
   let countdownInterval = null;
-  
+
   // 任务处理器映射表
   const taskHandlers = {};
-  
+
   // 注册任务处理器
   function registerTaskHandler(taskName, handler) {
     taskHandlers[taskName] = handler;
   }
-  
+
   // 注册所有任务处理器
   function registerAllTaskHandlers() {
     // 注册接收任务处理器
@@ -101,7 +101,7 @@ const workerJs = function () {
         Data: null
       }), delay);
     });
-    
+
     // 注册定时任务处理器
     registerTaskHandler("timerTask", (taskName, delay, data) => {
       const updateInterval = 100;
@@ -158,7 +158,7 @@ const workerJs = function () {
         });
       }, updateInterval);
     });
-    
+
     // 注册默认处理器
     registerTaskHandler("default", (taskName, delay, data) => {
       manager.set(taskName, () => {
@@ -169,22 +169,22 @@ const workerJs = function () {
       }, delay);
     });
   }
-  
+
   // 注册所有任务处理器
   registerAllTaskHandlers();
 
   // 监听来自主线程的消息
   self.addEventListener("message", function (e) {
     const data = e.data;
-    
+
     // 确保消息是对象且符合规定的格式
     if (!data || typeof data !== 'object' || !data.TaskName || !('Delay' in data)) {
       logError('Worker：收到无效消息格式: ', "red", data);
       return;
     }
-    
+
     const { TaskName, Delay, Data } = data;
-    
+
     // 查找并执行对应的处理器
     const handler = taskHandlers[TaskName] || taskHandlers["default"];
     if (handler) {
@@ -208,7 +208,6 @@ Function.prototype.call = function (...args) {
   // 检查当前函数名是否为"fb94"（B站奖励组件的关键函数）
   if (this.name === "fb94") {
     let temp = this.toString(); // 获取函数的字符串表示
-    temp.indexOf("this.$nextTick(()=>{}),"); // 查找特定模式（这行代码没有实际效果，可能是调试遗留）
 
     // 修改函数代码，将组件实例暴露到window对象上
     temp = temp.replace(
@@ -302,7 +301,7 @@ function enableDisabledButton() {
       // 先移除禁用状态
       targetButton.classList.remove('disable');
       logMessage("已启用按钮", "green");
-      
+
       // 创建针对这个按钮的观察器
       const observer = new MutationObserver((mutations) => {
         mutations.forEach((mutation) => {
@@ -315,13 +314,13 @@ function enableDisabledButton() {
           }
         });
       });
-      
+
       // 只观察这个按钮的class属性变化
       observer.observe(targetButton, {
         attributes: true,
         attributeFilter: ['class']
       });
-      
+
       // 3秒后停止观察
       setTimeout(() => {
         observer.disconnect();
@@ -383,7 +382,7 @@ function createBonusInfoDisplay() {
       dayLeftEl.textContent = '__天'
       dayLeftEl.classList = 'day-left';
       stockDiv.appendChild(totalStockEl);
-      stockDiv.appendChild(Object.assign(document.createElement('p'), {textContent: '/'}));
+      stockDiv.appendChild(Object.assign(document.createElement('p'), { textContent: '/' }));
       stockDiv.appendChild(dayLeftEl);
       cdKeyEl.parentNode.insertBefore(stockDiv, cdKeyEl.nextSibling);
 
@@ -405,7 +404,7 @@ function createBonusInfoDisplay() {
 window.addEventListener("load", function () {
   // 等待awardInstance初始化
   waitForElement(
-    () => typeof awardInstance !== 'undefined' && !awardInstance.cdKey, 
+    () => typeof awardInstance !== 'undefined' && !awardInstance.cdKey,
     () => initializeAward(),
     100,  // 每次间隔100ms
     3000,  // 超时时间3秒
@@ -420,7 +419,7 @@ window.addEventListener("load", function () {
 function waitForElement(condition, callback, interval = 100, timeout = 3000, failCallback = null) {
   let startTime = Date.now();
   let elapsed = 0;
-  
+
   function check() {
     const result = condition();
     if (result) {
@@ -428,7 +427,7 @@ function waitForElement(condition, callback, interval = 100, timeout = 3000, fai
       callback(result === true ? null : result);
     } else {
       elapsed = Date.now() - startTime;
-      
+
       if (elapsed >= timeout) {
         // 超过超时时间，执行失败回调
         logMessage("等待超时", "red");
@@ -438,13 +437,13 @@ function waitForElement(condition, callback, interval = 100, timeout = 3000, fai
         // 默认失败回调什么都不做
         return;
       }
-      
+
       // 输出等待信息
-      logMessage(`等待初始化...(${(elapsed/1000).toFixed(2)}s/${(timeout/1000).toFixed(2)}s)`, "black");
+      logMessage(`等待初始化...(${(elapsed / 1000).toFixed(2)}s/${(timeout / 1000).toFixed(2)}s)`, "black");
       setTimeout(check, interval);
     }
   }
-  
+
   // 开始检查
   check();
 }
@@ -479,8 +478,7 @@ function registerAllHandlers() {
     const cdKeyEl = document.querySelector('p.cd-key');
 
     if (totalStockEl && cdKeyEl && dayLeftEl) {
-      if (awardInstance.bonusInfo.status === 6)
-      {
+      if (awardInstance.bonusInfo.status === 6) {
         utils.getBonusHistory(awardInstance.actId).then((res) => {
           // 根据活动id取出对应兑换码
           const id = awardInstance.awardInfo.award_inner_id || 0;
