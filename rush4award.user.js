@@ -276,105 +276,109 @@ function registerHandler(msgType, handler) {
 // 启用已禁用的按钮
 function enableDisabledButton() {
   // 找到需要监听的按钮
-  const targetButton = document.querySelector('.button.disable');
-  if (!targetButton) {
-    // 如果暂时没找到按钮，等待后再次尝试
-    setTimeout(enableDisabledButton, 100);
-    return;
-  }
-  
-  // 先移除禁用状态
-  targetButton.classList.remove('disable');
-  console.log("%c Rush4award %c 已启用按钮", "background: purple; color: white; padding: 2px 4px; border-radius: 3px;", "color: green;");
-  
-  // 创建针对这个按钮的观察器
-  const observer = new MutationObserver((mutations) => {
-    mutations.forEach((mutation) => {
-      if (mutation.type === 'attributes' && mutation.attributeName === 'class') {
-        // 当按钮的class属性变化且包含disable类时，移除该类
-        if (targetButton.classList.contains('disable')) {
-          targetButton.classList.remove('disable');
-          console.log("%c Rush4award %c 已启用按钮", "background: purple; color: white; padding: 2px 4px; border-radius: 3px;", "color: green;");
-        }
-      }
-    });
-  });
-  
-  // 只观察这个按钮的class属性变化
-  observer.observe(targetButton, {
-    attributes: true,
-    attributeFilter: ['class']
-  });
-  
-  // 3秒后停止观察
-  setTimeout(() => {
-    observer.disconnect();
-  }, 3000);
+  waitForElement(
+    () => document.querySelector('.button.disable'),
+    (targetButton) => {
+      // 先移除禁用状态
+      targetButton.classList.remove('disable');
+      console.log("%c Rush4award %c 已启用按钮", "background: purple; color: white; padding: 2px 4px; border-radius: 3px;", "color: green;");
+      
+      // 创建针对这个按钮的观察器
+      const observer = new MutationObserver((mutations) => {
+        mutations.forEach((mutation) => {
+          if (mutation.type === 'attributes' && mutation.attributeName === 'class') {
+            // 当按钮的class属性变化且包含disable类时，移除该类
+            if (targetButton.classList.contains('disable')) {
+              targetButton.classList.remove('disable');
+              console.log("%c Rush4award %c 已启用按钮", "background: purple; color: white; padding: 2px 4px; border-radius: 3px;", "color: green;");
+            }
+          }
+        });
+      });
+      
+      // 只观察这个按钮的class属性变化
+      observer.observe(targetButton, {
+        attributes: true,
+        attributeFilter: ['class']
+      });
+      
+      // 3秒后停止观察
+      setTimeout(() => {
+        observer.disconnect();
+      }, 3000);
+    },
+    100,  // 间隔100ms
+    3000  // 超时时间3秒
+  );
 }
 
 // 创建倒计时显示元素
 function createCountdownDisplay() {
-  const sectionTitle = document.querySelector('.section-title');
-  if (sectionTitle) {
-    // 创建Patch标记
-    const patchSpan = document.createElement('span');
-    patchSpan.textContent = ' Patch';
-    patchSpan.style.color = 'purple';
-    patchSpan.style.display = 'inline';
-    sectionTitle.appendChild(patchSpan);
+  waitForElement(
+    () => document.querySelector('.section-title'),
+    (sectionTitle) => {
+      // 创建Patch标记
+      const patchSpan = document.createElement('span');
+      patchSpan.textContent = ' Patch';
+      patchSpan.style.color = 'purple';
+      patchSpan.style.display = 'inline';
+      sectionTitle.appendChild(patchSpan);
 
-    // 创建倒计时容器
-    if (TimerTime !== "0") {
-      const countdownDiv = document.createElement('div');
-      countdownDiv.id = 'rush4award-countdown';
-      countdownDiv.style.color = 'red';
-      countdownDiv.style.fontWeight = 'bold';
-      countdownDiv.style.marginTop = '5px';
-      countdownDiv.textContent = '倒计时加载中...';
-      sectionTitle.parentNode.insertBefore(countdownDiv, sectionTitle.nextSibling);
-    }
-  } else {
-    setTimeout(createCountdownDisplay, 500); // 如果未找到标题，0.5秒后重试
-  }
+      // 创建倒计时容器
+      if (TimerTime !== "0") {
+        const countdownDiv = document.createElement('div');
+        countdownDiv.id = 'rush4award-countdown';
+        countdownDiv.style.color = 'red';
+        countdownDiv.style.fontWeight = 'bold';
+        countdownDiv.style.marginTop = '5px';
+        countdownDiv.textContent = '倒计时加载中...';
+        sectionTitle.parentNode.insertBefore(countdownDiv, sectionTitle.nextSibling);
+      }
+    },
+    500,  // 间隔500ms
+    3000  // 超时时间15秒
+  );
 }
 
 function createBonusInfoDisplay() {
   // 创建奖励信息显示元素
-  const extraInfo = document.querySelector('p.extra-info:last-child');
-  if (extraInfo) {
-    // 创建兑换码显示
-    const cdKeyEl = document.createElement('p');
-    cdKeyEl.classList = 'extra-info cd-key';
-    cdKeyEl.textContent = `cdKey：________`;
-    extraInfo.parentNode.insertBefore(cdKeyEl, extraInfo.nextSibling);
+  waitForElement(
+    () => document.querySelector('p.extra-info:last-child'),
+    (extraInfo) => {
+      // 创建兑换码显示
+      const cdKeyEl = document.createElement('p');
+      cdKeyEl.classList = 'extra-info cd-key';
+      cdKeyEl.textContent = `cdKey：________`;
+      extraInfo.parentNode.insertBefore(cdKeyEl, extraInfo.nextSibling);
 
-    // 创建剩余量显示
-    const stockDiv = document.createElement('div');
-    stockDiv.className = 'extra-info';
-    stockDiv.style.display = 'flex';
-    stockDiv.style.gap = '20px'
-    const totalStockEl = document.createElement('p');
-    const dayLeftEl = document.createElement('p');
-    totalStockEl.textContent = '总剩余量：__';
-    totalStockEl.classList = 'total-stock';
-    dayLeftEl.textContent = '__天'
-    dayLeftEl.classList = 'day-left';
-    stockDiv.appendChild(totalStockEl);
-    stockDiv.appendChild(Object.assign(document.createElement('p'), {textContent: '/'}));
-    stockDiv.appendChild(dayLeftEl);
-    cdKeyEl.parentNode.insertBefore(stockDiv, cdKeyEl.nextSibling);
+      // 创建剩余量显示
+      const stockDiv = document.createElement('div');
+      stockDiv.className = 'extra-info';
+      stockDiv.style.display = 'flex';
+      stockDiv.style.gap = '20px'
+      const totalStockEl = document.createElement('p');
+      const dayLeftEl = document.createElement('p');
+      totalStockEl.textContent = '总剩余量：__';
+      totalStockEl.classList = 'total-stock';
+      dayLeftEl.textContent = '__天'
+      dayLeftEl.classList = 'day-left';
+      stockDiv.appendChild(totalStockEl);
+      stockDiv.appendChild(Object.assign(document.createElement('p'), {textContent: '/'}));
+      stockDiv.appendChild(dayLeftEl);
+      cdKeyEl.parentNode.insertBefore(stockDiv, cdKeyEl.nextSibling);
 
-    // 创建worker定时
-    setInterval(() => {
-      worker.postMessage({
-        TaskName: "updateBonusInfo",
-        Delay: 0,
-        Data: null
-      });
-    }, BonusInfoUpdateInterval);
-  } else {
-    setTimeout(createBonusInfoDisplay, 500); // 如果未找到元素，0.5秒后重试
-  }
+      // 创建worker定时
+      setInterval(() => {
+        worker.postMessage({
+          TaskName: "updateBonusInfo",
+          Delay: 0,
+          Data: null
+        });
+      }, BonusInfoUpdateInterval);
+    },
+    500,  // 间隔500ms
+    3000  // 超时时间15秒
+  );
 }
 
 // 页面加载完成后执行
@@ -382,32 +386,41 @@ window.addEventListener("load", function () {
   // 等待awardInstance初始化
   waitForElement(
     () => typeof awardInstance !== 'undefined' && !awardInstance.cdKey, 
-    initializeAward,
-    30,  // 最大尝试次数 (30次 * 100ms = 3秒)
-    100  // 每次间隔100ms
+    () => initializeAward(),
+    100,  // 每次间隔100ms
+    3000,  // 超时时间3秒
+    () => {
+      console.log("%c Rush4award %c 等待超时 刷新", "background: purple; color: white; padding: 2px 4px; border-radius: 3px;", "color: red;");
+      window.location.reload();
+    }
   );
 });
 
 // 待元素出现或条件满足
-function waitForElement(condition, callback, maxTries = 30, interval = 100) {
-  let tries = 0;
+function waitForElement(condition, callback, interval = 100, timeout = 3000, failCallback = null) {
+  let startTime = Date.now();
+  let elapsed = 0;
   
   function check() {
-    if (condition()) {
+    const result = condition();
+    if (result) {
       // 条件满足，执行回调
-      callback();
+      callback(result === true ? null : result);
     } else {
-      tries++;
+      elapsed = Date.now() - startTime;
       
-      if (tries >= maxTries) {
-        // 超过最大尝试次数，刷新页面
-        console.log("%c Rush4award %c 等待超时，刷新页面...", "background: purple; color: white; padding: 2px 4px; border-radius: 3px;", "color: red;");
-        location.reload();
+      if (elapsed >= timeout) {
+        // 超过超时时间，执行失败回调
+        console.log("%c Rush4award %c 等待超时", "background: purple; color: white; padding: 2px 4px; border-radius: 3px;", "color: red;");
+        if (typeof failCallback === 'function') {
+          failCallback();
+        }
+        // 默认失败回调什么都不做
         return;
       }
       
       // 输出等待信息
-      console.log(`%c Rush4award %c 等待初始化...(${tries}/${maxTries})`, "background: purple; color: white; padding: 2px 4px; border-radius: 3px;", "color: black;");
+      console.log(`%c Rush4award %c 等待初始化...(${(elapsed/1000).toFixed(2)}s/${(timeout/1000).toFixed(2)}s)`, "background: purple; color: white; padding: 2px 4px; border-radius: 3px;", "color: black;");
       setTimeout(check, interval);
     }
   }
