@@ -19,7 +19,7 @@ const TimerTime = "01:00:00:200"; // 在这里设置定时时间
 // 定义领取奖励的时间间隔（毫秒）
 const ReceiveTime = 1000; // 正常请求间隔：1秒
 const SlowerTime = 10000; // 遇到验证码后的较慢请求间隔：10秒
-const BounsInfoUpdateInterval = 2000; // 奖励信息更新间隔：2秒
+const BonusInfoUpdateInterval = 2000; // 奖励信息更新间隔：2秒
 
 // 定义Web Worker的代码，用于在后台线程中管理定时任务
 const workerJs = function () {
@@ -338,7 +338,7 @@ function createCountdownDisplay() {
   }
 }
 
-function createBounsInfoDisplay() {
+function createBonusInfoDisplay() {
   // 创建奖励信息显示元素
   const extraInfo = document.querySelector('p.extra-info:last-child');
   if (extraInfo) {
@@ -367,13 +367,13 @@ function createBounsInfoDisplay() {
     // 创建worker定时
     setInterval(() => {
       worker.postMessage({
-        TaskName: "updateBounsInfo",
+        TaskName: "updateBonusInfo",
         Delay: 0,
         Data: null
       });
-    }, BounsInfoUpdateInterval);
+    }, BonusInfoUpdateInterval);
   } else {
-    setTimeout(createBounsInfoDisplay, 500); // 如果未找到元素，0.5秒后重试
+    setTimeout(createBonusInfoDisplay, 500); // 如果未找到元素，0.5秒后重试
   }
 }
 
@@ -440,15 +440,15 @@ function registerAllHandlers() {
   });
 
   // 注册奖励信息更新处理器
-  registerHandler("updateBounsInfo", () => {
+  registerHandler("updateBonusInfo", () => {
     const totalStockEl = document.querySelector('p.total-stock');
     const dayLeftEl = document.querySelector('p.day-left');
     const cdKeyEl = document.querySelector('p.cd-key');
 
     if (totalStockEl && cdKeyEl && dayLeftEl) {
-      if (awardInstance.bounsInfo.status === 6)
+      if (awardInstance.bonusInfo.status === 6)
       {
-        utils.getBounsHistory(awardInstance.actId).then((res) => {
+        utils.getBonusHistory(awardInstance.actId).then((res) => {
           // 根据活动id取出对应兑换码
           const id = awardInstance.awardInfo.award_inner_id || 0;
           const i = res?.list?.find((t) => t.award_id === id);
@@ -456,7 +456,7 @@ function registerAllHandlers() {
           cdKeyEl.innerHTML = `cdKey：<span onclick="navigator.clipboard.writeText('${awardInstance.cdKey}'); this.innerHTML = '${awardInstance.cdKey}<span style=\\'color:purple;\\'> 复制成功</span>'">${awardInstance.cdKey}</span>`;
         });
       }
-      utils.getBounsInfo(awardInstance.taskId).then((res) => {
+      utils.getBonusInfo(awardInstance.taskId).then((res) => {
         totalStockEl.textContent = `总剩余量：${res.stock_info.total_stock}%`;
         const desc = awardInstance.awardInfo.award_description;
         const match = desc.match(/(\d{2,}).*?(\d{2,})份/);
@@ -479,7 +479,7 @@ function initializeAward() {
   createCountdownDisplay();
 
   // 创建任务余额显示
-  createBounsInfoDisplay();
+  createBonusInfoDisplay();
 
   // 启用已禁用的按钮
   enableDisabledButton();
