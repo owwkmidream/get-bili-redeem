@@ -3,7 +3,7 @@
 // @namespace   github.com/owwkmidream
 // @license     Mit
 // @match       https://www.bilibili.com/blackboard/new-award-exchange.html?task_id=*
-// @version     3.5.5
+// @version     3.5.6
 // @author      owwk
 // @icon        https://i0.hdslb.com/bfs/activity-plat/static/b9vgSxGaAg.png
 // @homepage    https://github.com/owwkmidream/get-bili-redeem
@@ -175,13 +175,9 @@ const workerJs = function () {
   });
 };
 
-// 转换Worker函数为字符串
-workerJs.toString();
-// 创建一个Blob对象，包含Worker代码
+// 创建Worker
 const blob = new Blob([`(${workerJs})()`], { type: "application/javascript" });
-// 创建一个URL对象，指向Blob
 const url = URL.createObjectURL(blob);
-// 使用URL创建Web Worker
 const worker = new Worker(url);
 
 // 保存原始的Function.prototype.call方法
@@ -279,14 +275,41 @@ function registerHandler(msgType, handler) {
 
 // 启用已禁用的按钮
 function enableDisabledButton() {
-  const disabledButton = document.querySelector('.button.disable');
-  if (disabledButton) {
-    disabledButton.classList.remove('disable');
-    console.log("%c Rush4award %c 已启用按钮", "background: purple; color: white; padding: 2px 4px; border-radius: 3px;", "color: green;");
-    setTimeout(enableDisabledButton, 500); // 如果未找到按钮，0.5秒后重试
-  } else {
-    setTimeout(enableDisabledButton, 500); // 如果未找到按钮，0.5秒后重试
+  // 找到需要监听的按钮
+  const targetButton = document.querySelector('.button.disable');
+  if (!targetButton) {
+    // 如果暂时没找到按钮，等待后再次尝试
+    setTimeout(enableDisabledButton, 100);
+    return;
   }
+  
+  // 先移除禁用状态
+  targetButton.classList.remove('disable');
+  console.log("%c Rush4award %c 已启用按钮", "background: purple; color: white; padding: 2px 4px; border-radius: 3px;", "color: green;");
+  
+  // 创建针对这个按钮的观察器
+  const observer = new MutationObserver((mutations) => {
+    mutations.forEach((mutation) => {
+      if (mutation.type === 'attributes' && mutation.attributeName === 'class') {
+        // 当按钮的class属性变化且包含disable类时，移除该类
+        if (targetButton.classList.contains('disable')) {
+          targetButton.classList.remove('disable');
+          console.log("%c Rush4award %c 已启用按钮", "background: purple; color: white; padding: 2px 4px; border-radius: 3px;", "color: green;");
+        }
+      }
+    });
+  });
+  
+  // 只观察这个按钮的class属性变化
+  observer.observe(targetButton, {
+    attributes: true,
+    attributeFilter: ['class']
+  });
+  
+  // 3秒后停止观察
+  setTimeout(() => {
+    observer.disconnect();
+  }, 3000);
 }
 
 // 创建倒计时显示元素
@@ -486,7 +509,7 @@ function initializeAward() {
     this.pageError = false;
   });
 
-  // 监听cdKey属性变化，当获取到cdKey时，恢复原始fetch并终止Worker
+  // 监听cdKey属性变化，当获取到cdKey时，恢复原始fetch并终止Worker和Observer
   awardInstance.$watch("cdKey", function (newVal, oldVal) {
     window.fetch = originalFetch;
     worker.terminate();
