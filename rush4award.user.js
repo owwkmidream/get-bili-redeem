@@ -3,7 +3,7 @@
 // @namespace   github.com/owwkmidream
 // @license     Mit
 // @match       https://www.bilibili.com/blackboard/new-award-exchange.html?task_id=*
-// @version     3.5.1
+// @version     3.5.2
 // @author      owwk
 // @icon        https://i0.hdslb.com/bfs/activity-plat/static/b9vgSxGaAg.png
 // @homepage    https://github.com/owwkmidream/get-bili-redeem
@@ -337,7 +337,7 @@ function createBounsInfoDisplay() {
         Delay: 0,
         Data: null
       });
-    }, 3000);
+    }, 1000);
   } else {
     setTimeout(createBounsInfoDisplay, 500); // 如果未找到元素，0.5秒后重试
   }
@@ -411,15 +411,18 @@ function registerAllHandlers() {
     const cdKeyEl = document.querySelector('p.extra-info.cd-key');
 
     if (totalStockEl && cdKeyEl) {
-      utils.getBounsHistory(awardInstance.actId).then((res) => {
-        // 根据活动id取出对应兑换码
-        const id = awardInstance.awardInfo.award_inner_id || 0;
-        const i = res?.list?.find((t) => t.award_id === id);
-        awardInstance.cdKey = i?.extra_info?.cdkey_content || "";
-      });
+      if (awardInstance.bounsInfo.status === 6)
+      {
+        utils.getBounsHistory(awardInstance.actId).then((res) => {
+          // 根据活动id取出对应兑换码
+          const id = awardInstance.awardInfo.award_inner_id || 0;
+          const i = res?.list?.find((t) => t.award_id === id);
+          awardInstance.cdKey = i?.extra_info?.cdkey_content || "";
+          cdKeyEl.innerHTML = `cdKey：<span onclick="navigator.clipboard.writeText('${awardInstance.cdKey}')">${awardInstance.cdKey}</span>`;
+        });
+      }
       utils.getBounsInfo(awardInstance.taskId).then((res) => {
         totalStockEl.textContent = `总剩余量：${res.stock_info.total_stock}%`;
-        cdKeyEl.innerHTML = `cdKey：<span onclick="navigator.clipboard.writeText('${awardInstance.cdKey}')">${awardInstance.cdKey}</span>`;
       });
     }
   });
