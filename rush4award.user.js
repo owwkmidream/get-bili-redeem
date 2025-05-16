@@ -3,7 +3,7 @@
 // @namespace   github.com/owwkmidream
 // @license     Mit
 // @match       https://www.bilibili.com/blackboard/new-award-exchange.html?task_id=*
-// @version     3.4.0
+// @version     3.4.1
 // @author      owwk
 // @icon        https://i0.hdslb.com/bfs/activity-plat/static/b9vgSxGaAg.png
 // @homepage    https://github.com/owwkmidream/get-bili-redeem
@@ -264,13 +264,13 @@ function createBounsInfoDisplay() {
   if (extraInfo) {
     // 创建剩余量显示
     const totalStockEl = document.createElement('p');
-    totalStockEl.className = 'extra-info'; 
+    totalStockEl.classList = 'extra-info total-stock';
     totalStockEl.textContent = '总剩余量：';
     extraInfo.parentNode.insertBefore(totalStockEl, extraInfo.nextSibling);
 
     // 创建兑换码显示
     const cdKeyEl = document.createElement('p');
-    cdKeyEl.className = 'extra-info';
+    cdKeyEl.classList = 'extra-info cd-key';
     cdKeyEl.textContent = `cdKey：`;
     extraInfo.parentNode.insertBefore(cdKeyEl, extraInfo.nextSibling);
 
@@ -385,8 +385,8 @@ function initializeAward() {
     }
     // 更新奖励信息
     else if (data.type === "updateBounsInfo") {
-      const totalStockEl = document.querySelector('p.extra-info:last-child');
-      const cdKeyEl = document.querySelector('p.extra-info:last-child');
+      const totalStockEl = document.querySelector('p.extra-info.total-stock');
+      const cdKeyEl = document.querySelector('p.extra-info.cd-key');
 
       if (totalStockEl && cdKeyEl) {
         utils.getBounsHistory(awardInstance.actId).then((res) => {
