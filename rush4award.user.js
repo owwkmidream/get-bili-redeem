@@ -404,7 +404,7 @@ function createBonusInfoDisplay() {
       }, BonusInfoUpdateInterval);
     },
     500,  // 间隔500ms
-    3000  // 超时时间15秒
+    3000  // 超时时间3秒
   );
 }
 
@@ -491,7 +491,7 @@ function registerAllHandlers() {
     const cdKeyEl = document.querySelector('p.cd-key');
 
     if (totalStockEl && cdKeyEl && dayLeftEl) {
-      if (awardInstance.bonusInfo.status === 6) {
+      if (awardInstance.bounsInfo.status === 6) {
         utils.getBonusHistory(awardInstance.actId).then((res) => {
           // 根据活动id取出对应兑换码
           const id = awardInstance.awardInfo.award_inner_id || 0;
