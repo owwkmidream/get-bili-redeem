@@ -3,7 +3,7 @@
 // @namespace   github.com/owwkmidream
 // @license     Mit
 // @match       https://www.bilibili.com/blackboard/new-award-exchange.html?task_id=*
-// @version     3.3.0
+// @version     3.4.0
 // @author      owwk
 // @icon        https://i0.hdslb.com/bfs/activity-plat/static/b9vgSxGaAg.png
 // @homepage    https://github.com/owwkmidream/get-bili-redeem
@@ -119,7 +119,15 @@ const workerJs = function () {
           timeLeft: `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}:${ms.toString().padStart(3, '0')}`,
           targetTime: targetTime.toLocaleString()
         });
-      }, 10);
+      }, 100);
+    }
+    else {
+      // 默认任务
+      manager.set(data.type, () => {
+        self.postMessage({
+          type: data.type
+        });
+      }, data.time);
     }
   });
 };
@@ -250,93 +258,148 @@ function createCountdownDisplay() {
   }
 }
 
+function createBounsInfoDisplay() {
+  // 创建奖励信息显示元素
+  const extraInfo = document.querySelector('p.extra-info:last-child');
+  if (extraInfo) {
+    // 创建剩余量显示
+    const totalStockEl = document.createElement('p');
+    totalStockEl.className = 'extra-info'; 
+    totalStockEl.textContent = '总剩余量：';
+    extraInfo.parentNode.insertBefore(totalStockEl, extraInfo.nextSibling);
+
+    // 创建兑换码显示
+    const cdKeyEl = document.createElement('p');
+    cdKeyEl.className = 'extra-info';
+    cdKeyEl.textContent = `cdKey：`;
+    extraInfo.parentNode.insertBefore(cdKeyEl, extraInfo.nextSibling);
+
+    // 创建worker定时
+    worker.postMessage({
+      type: "updateBounsInfo",
+      time: 3000
+    });
+  } else {
+    setTimeout(createBounsInfoDisplay, 500); // 如果未找到元素，0.5秒后重试
+  }
+}
+
 // 页面加载完成后执行
 window.addEventListener("load", function () {
-  // 检查awardInstance是否已定义
-  let checkCount = 0; // 检查次数计数
-  const maxChecks = 30; // 最大检查次数(30次 * 100ms = 3秒)
+  // 等待awardInstance初始化
+  waitForElement(
+    () => typeof awardInstance !== 'undefined' && !awardInstance.cdKey, 
+    initializeAward,
+    30,  // 最大尝试次数 (30次 * 100ms = 3秒)
+    100  // 每次间隔100ms
+  );
+});
 
-  const checkAwardInstance = () => {
-    if (typeof awardInstance !== 'undefined') {
-
-      // 如果已经有CD Key，不执行自动领取
-      if (awardInstance.cdKey) {
-        return;
-      }
-
-      console.log("%c Rush4award %c 页面加载完成", "background: purple; color: white; padding: 2px 4px; border-radius: 3px;", "color: black;");
-
-      // 创建倒计时显示
-      createCountdownDisplay();
-
-      // 启用已禁用的按钮
-      enableDisabledButton();
-
-      // 如果定时功能已启用，则发送定时任务给Worker
-      if (TimerTime !== "0") {
-        console.log("%c Rush4award %c 定时功能已启用，设定时间为: " + TimerTime, "background: purple; color: white; padding: 2px 4px; border-radius: 3px;", "color: blue;");
-        worker.postMessage({
-          type: "timerTask",
-          timerTime: TimerTime
-        });
-      } else {
-        // 未启用定时，延迟1秒后执行第一次领取
-        setTimeout(() => {
-          awardInstance.handelReceive();
-        }, 1000);
-      }
-
-      // 监听pageError属性变化，自动隐藏错误
-      awardInstance.$watch("pageError", function (newVal, oldVal) {
-        this.pageError = false;
-      });
-
-      // 监听cdKey属性变化，当获取到cdKey时，恢复原始fetch并终止Worker
-      awardInstance.$watch("cdKey", function (newVal, oldVal) {
-        window.fetch = originalFetch;
-        worker.terminate();
-      });
-
-      // 监听Worker消息，收到消息后执行领取操作
-      worker.addEventListener("message", function (e) {
-        const data = e.data;
-
-        // 处理不同类型的消息
-        if (typeof data === 'string' || data.type === "signal") {
-          console.log("%c Rush4award %c 收到信号: 执行领取操作", "background: purple; color: white; padding: 2px 4px; border-radius: 3px;", "color: black;");
-          awardInstance.handelReceive();
-        }
-        // 定时时间已到
-        else if (data.type === "timerReached") {
-          console.log("%c Rush4award %c 定时时间已到！执行领取操作", "background: purple; color: white; padding: 2px 4px; border-radius: 3px;", "color: red;");
-          awardInstance.handelReceive();
-        }
-        // 更新倒计时显示
-        else if (data.type === "countdown") {
-          const countdownDiv = document.getElementById('rush4award-countdown');
-          if (countdownDiv) {
-            countdownDiv.textContent = `定时: ${data.targetTime} | 倒计时: ${data.timeLeft}`;
-          }
-          // console.log("%c Rush4award %c 倒计时: " + data.timeLeft, "background: purple; color: white; padding: 2px 4px; border-radius: 3px;", "color: blue;");
-        }
-      });
+// 待元素出现或条件满足
+function waitForElement(condition, callback, maxTries = 30, interval = 100) {
+  let tries = 0;
+  
+  function check() {
+    if (condition()) {
+      // 条件满足，执行回调
+      callback();
     } else {
-      // 增加检查次数
-      checkCount++;
-
-      if (checkCount >= maxChecks) {
-        // 超过3秒(30次检查)，刷新页面
-        console.log("%c Rush4award %c 等待awardInstance超时(3秒)，刷新页面...", "background: purple; color: white; padding: 2px 4px; border-radius: 3px;", "color: red;");
+      tries++;
+      
+      if (tries >= maxTries) {
+        // 超过最大尝试次数，刷新页面
+        console.log("%c Rush4award %c 等待超时，刷新页面...", "background: purple; color: white; padding: 2px 4px; border-radius: 3px;", "color: red;");
         location.reload();
         return;
       }
-
-      // awardInstance尚未定义，等待100ms后再次检查
-      console.log(`%c Rush4award %c 等待awardInstance初始化...(${checkCount}/${maxChecks})`, "background: purple; color: white; padding: 2px 4px; border-radius: 3px;", "color: black;");
-      setTimeout(checkAwardInstance, 100);
+      
+      // 输出等待信息
+      console.log(`%c Rush4award %c 等待初始化...(${tries}/${maxTries})`, "background: purple; color: white; padding: 2px 4px; border-radius: 3px;", "color: black;");
+      setTimeout(check, interval);
     }
-  };
+  }
+  
+  // 开始检查
+  check();
+}
 
-  // 开始检查awardInstance
-  checkAwardInstance();
-});
+// 初始化奖励相关功能
+function initializeAward() {
+  console.log("%c Rush4award %c 页面加载完成", "background: purple; color: white; padding: 2px 4px; border-radius: 3px;", "color: black;");
+
+  // 创建倒计时显示
+  createCountdownDisplay();
+
+  // 创建任务余额显示
+  createBounsInfoDisplay();
+
+  // 启用已禁用的按钮
+  enableDisabledButton();
+
+  // 如果定时功能已启用，则发送定时任务给Worker
+  if (TimerTime !== "0") {
+    console.log("%c Rush4award %c 定时功能已启用，设定时间为: " + TimerTime, "background: purple; color: white; padding: 2px 4px; border-radius: 3px;", "color: blue;");
+    worker.postMessage({
+      type: "timerTask",
+      timerTime: TimerTime
+    });
+  } else {
+    // 未启用定时，延迟1秒后执行第一次领取
+    setTimeout(() => {
+      awardInstance.handelReceive();
+    }, 1000);
+  }
+
+  // 监听pageError属性变化，自动隐藏错误
+  awardInstance.$watch("pageError", function (newVal, oldVal) {
+    this.pageError = false;
+  });
+
+  // 监听cdKey属性变化，当获取到cdKey时，恢复原始fetch并终止Worker
+  awardInstance.$watch("cdKey", function (newVal, oldVal) {
+    window.fetch = originalFetch;
+    worker.terminate();
+  });
+
+  // 监听Worker消息，收到消息后执行领取操作
+  worker.addEventListener("message", function (e) {
+    const data = e.data;
+
+    // 处理不同类型的消息
+    if (typeof data === 'string' || data.type === "signal") {
+      console.log("%c Rush4award %c 收到信号: 执行领取操作", "background: purple; color: white; padding: 2px 4px; border-radius: 3px;", "color: black;");
+      awardInstance.handelReceive();
+    }
+    // 定时时间已到
+    else if (data.type === "timerReached") {
+      console.log("%c Rush4award %c 定时时间已到！执行领取操作", "background: purple; color: white; padding: 2px 4px; border-radius: 3px;", "color: red;");
+      awardInstance.handelReceive();
+    }
+    // 更新倒计时显示
+    else if (data.type === "countdown") {
+      const countdownDiv = document.getElementById('rush4award-countdown');
+      if (countdownDiv) {
+        countdownDiv.innerHTML = `定时: ${data.targetTime}<br>倒计时: ${data.timeLeft}`;
+      }
+      // console.log("%c Rush4award %c 倒计时: " + data.timeLeft, "background: purple; color: white; padding: 2px 4px; border-radius: 3px;", "color: blue;");
+    }
+    // 更新奖励信息
+    else if (data.type === "updateBounsInfo") {
+      const totalStockEl = document.querySelector('p.extra-info:last-child');
+      const cdKeyEl = document.querySelector('p.extra-info:last-child');
+
+      if (totalStockEl && cdKeyEl) {
+        utils.getBounsHistory(awardInstance.actId).then((res) => {
+          // 根据活动id取出对应兑换码
+          const id = awardInstance.awardInfo.award_inner_id || 0;
+          const i = res?.list?.find((t) => t.award_id === id);
+          awardInstance.cdKey = i?.extra_info?.cdkey_content || "";
+        });
+        utils.getBounsInfo(awardInstance.taskId).then((res) => {
+          totalStockEl.textContent = `总剩余量：${res.stock_info.total_stock}%`;
+          cdKeyEl.textContent = `cdKey：${awardInstance.cdKey}`;
+        });
+      }
+    }
+  });
+}
