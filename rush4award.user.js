@@ -3,7 +3,7 @@
 // @namespace   github.com/owwkmidream
 // @license     Mit
 // @match       https://www.bilibili.com/blackboard/new-award-exchange.html?task_id=*
-// @version     3.5.2
+// @version     3.5.3
 // @author      owwk
 // @icon        https://i0.hdslb.com/bfs/activity-plat/static/b9vgSxGaAg.png
 // @homepage    https://github.com/owwkmidream/get-bili-redeem
@@ -418,7 +418,7 @@ function registerAllHandlers() {
           const id = awardInstance.awardInfo.award_inner_id || 0;
           const i = res?.list?.find((t) => t.award_id === id);
           awardInstance.cdKey = i?.extra_info?.cdkey_content || "";
-          cdKeyEl.innerHTML = `cdKey：<span onclick="navigator.clipboard.writeText('${awardInstance.cdKey}')">${awardInstance.cdKey}</span>`;
+          cdKeyEl.innerHTML = `cdKey：<span onclick="navigator.clipboard.writeText('${awardInstance.cdKey}'); this.innerHTML = '${awardInstance.cdKey}<span style=\\'color:purple;\\'> 复制成功</span>'">${awardInstance.cdKey}</span>`;
         });
       }
       utils.getBounsInfo(awardInstance.taskId).then((res) => {
