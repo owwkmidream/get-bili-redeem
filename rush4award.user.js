@@ -66,68 +66,100 @@ const workerJs = function () {
   // 监听来自主线程的消息
   self.addEventListener("message", function (e) {
     const data = e.data;
-
-    // 处理普通领取任务的定时器
-    if (typeof data === 'number') {
-      manager.set("receiveTask", () => self.postMessage({type: "signal"}), data);
+    
+    // 确保消息是对象且符合规定的格式
+    if (!data || typeof data !== 'object' || !data.TaskName || !('Delay' in data)) {
+      console.error('Worker收到无效消息格式:', data);
+      return;
     }
-    // 处理定时任务
-    else if (data.type === "timerTask") {
-      if (data.timerTime === "0") return; // 如果定时设置为0，不处理
+    
+    const { TaskName, Delay, Data } = data;
+    
+    // 根据任务名处理不同类型的任务
+    switch (TaskName) {
+      case "receiveTask":
+        // 普通领取任务
+        manager.set(TaskName, () => self.postMessage({
+          Msg: "signal",
+          Data: null
+        }), Delay);
+        break;
+        
+      case "timerTask":
+        // 定时任务处理
+        if (!Data || Data.timerTime === "0") return; // 如果定时设置为0，不处理
 
-      // 解析定时时间
-      const [hours, minutes, seconds, milliseconds] = data.timerTime.split(":").map(Number);
+        // 解析定时时间
+        const [hours, minutes, seconds, milliseconds] = Data.timerTime.split(":").map(Number);
 
-      // 计算目标时间
-      const now = new Date();
-      const targetTime = new Date();
-      targetTime.setHours(hours, minutes, seconds, milliseconds);
+        // 计算目标时间
+        const now = new Date();
+        const targetTime = new Date();
+        targetTime.setHours(hours, minutes, seconds, milliseconds);
 
-      // 如果目标时间已经过去，则设置为明天的同一时间
-      if (targetTime <= now) {
-        targetTime.setDate(targetTime.getDate() + 1);
-      }
-
-      // 计算时间差（毫秒）
-      let timeLeft = targetTime - now;
-
-      // 设置定时器
-      manager.set("scheduledTask", () => {
-        self.postMessage({type: "timerReached"});
-      }, timeLeft);
-
-      // 设置每秒倒计时更新
-      if (countdownInterval) clearInterval(countdownInterval);
-      countdownInterval = setInterval(() => {
-        timeLeft -= 10;
-
-        if (timeLeft <= 0) {
-          clearInterval(countdownInterval);
-          countdownInterval = null;
-          return;
+        // 如果目标时间已经过去，则设置为明天的同一时间
+        if (targetTime <= now) {
+          targetTime.setDate(targetTime.getDate() + 1);
         }
 
-        // 计算剩余时间
-        const h = Math.floor(timeLeft / 3600000);
-        const m = Math.floor((timeLeft % 3600000) / 60000);
-        const s = Math.floor((timeLeft % 60000) / 1000);
-        const ms = timeLeft % 1000;
+        // 计算时间差（毫秒）
+        let timeLeft = targetTime - now;
 
-        // 发送倒计时更新
-        self.postMessage({
-          type: "countdown",
-          timeLeft: `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}:${ms.toString().padStart(3, '0')}`,
-          targetTime: targetTime.toLocaleString()
-        });
-      }, 100);
-    }
-    else {
-      // 默认任务
-      manager.set(data.type, () => {
-        self.postMessage({
-          type: data.type
-        });
-      }, data.time);
+        // 设置定时器
+        manager.set(TaskName, () => {
+          self.postMessage({
+            Msg: "timerReached",
+            Data: null
+          });
+        }, timeLeft);
+
+        // 设置每秒倒计时更新
+        if (countdownInterval) clearInterval(countdownInterval);
+        countdownInterval = setInterval(() => {
+          timeLeft -= 10;
+
+          if (timeLeft <= 0) {
+            clearInterval(countdownInterval);
+            countdownInterval = null;
+            return;
+          }
+
+          // 计算剩余时间
+          const h = Math.floor(timeLeft / 3600000);
+          const m = Math.floor((timeLeft % 3600000) / 60000);
+          const s = Math.floor((timeLeft % 60000) / 1000);
+          const ms = timeLeft % 1000;
+
+          // 发送倒计时更新
+          self.postMessage({
+            Msg: "countdown",
+            Data: {
+              timeLeft: `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}:${ms.toString().padStart(3, '0')}`,
+              targetTime: targetTime.toLocaleString()
+            }
+          });
+        }, 100);
+        break;
+        
+      case "updateBounsInfo":
+        // 更新奖励信息
+        manager.set(TaskName, () => {
+          self.postMessage({
+            Msg: "updateBounsInfo",
+            Data: null
+          });
+        }, Delay);
+        break;
+        
+      default:
+        // 通用任务处理
+        manager.set(TaskName, () => {
+          self.postMessage({
+            Msg: TaskName,
+            Data: Data
+          });
+        }, Delay);
+        break;
     }
   });
 };
@@ -205,9 +237,15 @@ window.fetch = function (input, init = {}) {
             console.log("%c Rush4award %c ", "background: purple; color: white; padding: 2px 4px; border-radius: 3px;", "color: black;", res);
             if (res.code === 202100) { // 202100通常表示需要验证码
               document.querySelector("a.geetest_close")?.click() // 关闭验证码
-              worker.postMessage(SlowerTime); // 减慢请求速度
+              worker.postMessage({
+                TaskName: "receiveTask",
+                Delay: SlowerTime
+              }); // 减慢请求速度
             } else {
-              worker.postMessage(ReceiveTime); // 使用正常请求速度
+              worker.postMessage({
+                TaskName: "receiveTask",
+                Delay: ReceiveTime
+              }); // 使用正常请求速度
             }
           });
         return res;
@@ -277,8 +315,9 @@ function createBounsInfoDisplay() {
     // 创建worker定时
     window.updateBounsInfoInterval = setInterval(() => {
       worker.postMessage({
-        type: "updateBounsInfo",
-        time: 0
+        TaskName: "updateBounsInfo",
+        Delay: 0,
+        Data: null
       });
     }, 3000);
   } else {
@@ -342,8 +381,11 @@ function initializeAward() {
   if (TimerTime !== "0") {
     console.log("%c Rush4award %c 定时功能已启用，设定时间为: " + TimerTime, "background: purple; color: white; padding: 2px 4px; border-radius: 3px;", "color: blue;");
     worker.postMessage({
-      type: "timerTask",
-      timerTime: TimerTime
+      TaskName: "timerTask",
+      Delay: 0,
+      Data: {
+        timerTime: TimerTime
+      }
     });
   } else {
     // 未启用定时，延迟1秒后执行第一次领取
@@ -368,25 +410,27 @@ function initializeAward() {
     const data = e.data;
 
     // 处理不同类型的消息
-    if (typeof data === 'string' || data.type === "signal") {
+    if (typeof data === 'string' || data.type === "signal" || data.Msg === "signal") {
       console.log("%c Rush4award %c 收到信号: 执行领取操作", "background: purple; color: white; padding: 2px 4px; border-radius: 3px;", "color: black;");
       awardInstance.handelReceive();
     }
     // 定时时间已到
-    else if (data.type === "timerReached") {
+    else if (data.type === "timerReached" || data.Msg === "timerReached") {
       console.log("%c Rush4award %c 定时时间已到！执行领取操作", "background: purple; color: white; padding: 2px 4px; border-radius: 3px;", "color: red;");
       awardInstance.handelReceive();
     }
     // 更新倒计时显示
-    else if (data.type === "countdown") {
+    else if (data.type === "countdown" || data.Msg === "countdown") {
       const countdownDiv = document.getElementById('rush4award-countdown');
       if (countdownDiv) {
-        countdownDiv.innerHTML = `定时: ${data.targetTime}<br>倒计时: ${data.timeLeft}`;
+        const timeLeft = data.Data?.timeLeft || data.timeLeft;
+        const targetTime = data.Data?.targetTime || data.targetTime;
+        countdownDiv.innerHTML = `定时: ${targetTime}<br>倒计时: ${timeLeft}`;
       }
       // console.log("%c Rush4award %c 倒计时: " + data.timeLeft, "background: purple; color: white; padding: 2px 4px; border-radius: 3px;", "color: blue;");
     }
     // 更新奖励信息
-    else if (data.type === "updateBounsInfo") {
+    else if (data.type === "updateBounsInfo" || data.Msg === "updateBounsInfo") {
       const totalStockEl = document.querySelector('p.extra-info.total-stock');
       const cdKeyEl = document.querySelector('p.extra-info.cd-key');
 
