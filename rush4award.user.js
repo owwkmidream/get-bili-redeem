@@ -3,7 +3,7 @@
 // @namespace   github.com/owwkmidream
 // @license     Mit
 // @match       https://www.bilibili.com/blackboard/new-award-exchange.html?task_id=*
-// @version     3.5.0
+// @version     3.5.1
 // @author      owwk
 // @icon        https://i0.hdslb.com/bfs/activity-plat/static/b9vgSxGaAg.png
 // @homepage    https://github.com/owwkmidream/get-bili-redeem
@@ -62,6 +62,95 @@ const workerJs = function () {
   // 创建定时器管理器实例
   const manager = new TimerManager();
   let countdownInterval = null;
+  
+  // 任务处理器映射表
+  const taskHandlers = {};
+  
+  // 注册任务处理器
+  function registerTaskHandler(taskName, handler) {
+    taskHandlers[taskName] = handler;
+  }
+  
+  // 注册所有任务处理器
+  function registerAllTaskHandlers() {
+    // 注册接收任务处理器
+    registerTaskHandler("receiveTask", (taskName, delay, data) => {
+      manager.set(taskName, () => self.postMessage({
+        Msg: "signal",
+        Data: null
+      }), delay);
+    });
+    
+    // 注册定时任务处理器
+    registerTaskHandler("timerTask", (taskName, delay, data) => {
+      const updateInterval = 100;
+      if (!data || data.timerTime === "0") return; // 如果定时设置为0，不处理
+
+      // 解析定时时间
+      const [hours, minutes, seconds, milliseconds] = data.timerTime.split(":").map(Number);
+
+      // 计算目标时间
+      const now = new Date();
+      const targetTime = new Date();
+      targetTime.setHours(hours, minutes, seconds, milliseconds);
+
+      // 如果目标时间已经过去，则设置为明天的同一时间
+      if (targetTime <= now) {
+        targetTime.setDate(targetTime.getDate() + 1);
+      }
+
+      // 计算时间差（毫秒）
+      let timeLeft = targetTime - now;
+
+      // 设置定时器
+      manager.set(taskName, () => {
+        self.postMessage({
+          Msg: "timerReached",
+          Data: null
+        });
+      }, timeLeft);
+
+      // 设置每秒倒计时更新
+      if (countdownInterval) clearInterval(countdownInterval);
+      countdownInterval = setInterval(() => {
+        timeLeft -= updateInterval;
+
+        if (timeLeft <= 0) {
+          clearInterval(countdownInterval);
+          countdownInterval = null;
+          return;
+        }
+
+        // 计算剩余时间
+        const h = Math.floor(timeLeft / 3600000);
+        const m = Math.floor((timeLeft % 3600000) / 60000);
+        const s = Math.floor((timeLeft % 60000) / 1000);
+        const ms = timeLeft % 1000;
+
+        // 发送倒计时更新
+        self.postMessage({
+          Msg: "countdown",
+          Data: {
+            timeLeft: `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}:${ms.toString().padStart(3, '0')}`,
+            targetTime: targetTime.toLocaleString()
+          }
+        });
+      }, updateInterval);
+    });
+    
+    // 注册默认处理器
+    registerTaskHandler("default", (taskName, delay, data) => {
+      manager.set(taskName, () => {
+        self.postMessage({
+          Msg: taskName,
+          Data: data
+        });
+      }, delay);
+    });
+  }
+  
+  // 注册所有任务处理器
+  registerAllTaskHandlers();
 
   // 监听来自主线程的消息
   self.addEventListener("message", function (e) {
@@ -69,97 +158,18 @@ const workerJs = function () {
     
     // 确保消息是对象且符合规定的格式
     if (!data || typeof data !== 'object' || !data.TaskName || !('Delay' in data)) {
-      console.error('%c Rush4award %c Worker收到无效消息格式: ', "background: purple; color: white; padding: 2px 4px; border-radius: 3px;", "color: red;", data);
+      console.error('%c Rush4award %c Worker：收到无效消息格式: ', "background: purple; color: white; padding: 2px 4px; border-radius: 3px;", "color: red;", data);
       return;
     }
     
     const { TaskName, Delay, Data } = data;
     
-    // 根据任务名处理不同类型的任务
-    switch (TaskName) {
-      case "receiveTask":
-        // 普通领取任务
-        manager.set(TaskName, () => self.postMessage({
-          Msg: "signal",
-          Data: null
-        }), Delay);
-        break;
-        
-      case "timerTask":
-        // 定时任务处理
-        if (!Data || Data.timerTime === "0") return; // 如果定时设置为0，不处理
-
-        // 解析定时时间
-        const [hours, minutes, seconds, milliseconds] = Data.timerTime.split(":").map(Number);
-
-        // 计算目标时间
-        const now = new Date();
-        const targetTime = new Date();
-        targetTime.setHours(hours, minutes, seconds, milliseconds);
-
-        // 如果目标时间已经过去，则设置为明天的同一时间
-        if (targetTime <= now) {
-          targetTime.setDate(targetTime.getDate() + 1);
-        }
-
-        // 计算时间差（毫秒）
-        let timeLeft = targetTime - now;
-
-        // 设置定时器
-        manager.set(TaskName, () => {
-          self.postMessage({
-            Msg: "timerReached",
-            Data: null
-          });
-        }, timeLeft);
-
-        // 设置每秒倒计时更新
-        if (countdownInterval) clearInterval(countdownInterval);
-        countdownInterval = setInterval(() => {
-          timeLeft -= 10;
-
-          if (timeLeft <= 0) {
-            clearInterval(countdownInterval);
-            countdownInterval = null;
-            return;
-          }
-
-          // 计算剩余时间
-          const h = Math.floor(timeLeft / 3600000);
-          const m = Math.floor((timeLeft % 3600000) / 60000);
-          const s = Math.floor((timeLeft % 60000) / 1000);
-          const ms = timeLeft % 1000;
-
-          // 发送倒计时更新
-          self.postMessage({
-            Msg: "countdown",
-            Data: {
-              timeLeft: `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}:${ms.toString().padStart(3, '0')}`,
-              targetTime: targetTime.toLocaleString()
-            }
-          });
-        }, 100);
-        break;
-        
-      case "updateBounsInfo":
-        // 更新奖励信息
-        manager.set(TaskName, () => {
-          self.postMessage({
-            Msg: "updateBounsInfo",
-            Data: null
-          });
-        }, Delay);
-        break;
-        
-      default:
-        // 通用任务处理
-        manager.set(TaskName, () => {
-          self.postMessage({
-            Msg: TaskName,
-            Data: Data
-          });
-        }, Delay);
-        break;
+    // 查找并执行对应的处理器
+    const handler = taskHandlers[TaskName] || taskHandlers["default"];
+    if (handler) {
+      handler(TaskName, Delay, Data);
+    } else {
+      console.error(`%c Rush4award %c Worker: 未找到处理器，任务类型: ${TaskName}`, "background: purple; color: white; padding: 2px 4px; border-radius: 3px;", "color: red;");
     }
   });
 };
