@@ -3,7 +3,7 @@
 // @namespace   vurses
 // @license     Mit
 // @match       https://www.bilibili.com/blackboard/new-award-exchange.html?task_id=*
-// @version     3.5.1
+// @version     3.5.3
 // @author      layenh
 // @icon        https://i0.hdslb.com/bfs/activity-plat/static/b9vgSxGaAg.png
 // @homepage    https://github.com/vruses/get-bili-redeem
@@ -131,7 +131,10 @@ window.fetch = function (input, init = {}) {
               document.querySelector("a.geetest_close")?.click();
               worker.postMessage({ taskName: "receiveTask", time: SlowerTime });
             } else {
-              worker.postMessage({ taskName: "receiveTask", time: ReceiveTime });
+              worker.postMessage({
+                taskName: "receiveTask",
+                time: ReceiveTime,
+              });
             }
           });
         return res;
@@ -190,6 +193,13 @@ window.addEventListener("load", function () {
     if (e.data === "receiveTask") {
       awardInstance.handelReceive();
     } else if (e.data === "getInfoTask") {
+      // 更新显示信息
+      utils.getBounsHistory(awardInstance.actId).then((res) => {
+        // 根据活动id取出对应兑换码
+        const id = awardInstance.awardInfo.award_inner_id || 0;
+        const i = res?.list?.find((t) => t.award_id === id);
+        awardInstance.cdKey = i?.extra_info?.cdkey_content || "";
+      });
       utils.getBounsInfo(awardInstance.taskId).then((res) => {
         totalStockEl.textContent = `总剩余量：${res.stock_info.total_stock}%`;
         cdKeyEl.textContent = `cdKey：${awardInstance.cdKey}`;
