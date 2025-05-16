@@ -3,7 +3,7 @@
 // @namespace   github.com/owwkmidream
 // @license     Mit
 // @match       https://www.bilibili.com/blackboard/new-award-exchange.html?task_id=*
-// @version     3.5.6
+// @version     3.5.7
 // @author      owwk
 // @icon        https://i0.hdslb.com/bfs/activity-plat/static/b9vgSxGaAg.png
 // @homepage    https://github.com/owwkmidream/get-bili-redeem
@@ -12,6 +12,26 @@
 // @grant       none
 // @description 🔥功能介绍：1、支持B站所有激励计划，是否成功取决于b站接口是否更新，与游戏版本无关；2、根据验证码通过情况自适应请求速度；3、支持定时兑换功能
 // ==/UserScript==
+
+// 封装console输出的函数
+function logMessage(message, color = "black", ...args) {
+  console.log(
+    "%c Rush4award %c " + message,
+    "background: purple; color: white; padding: 2px 4px; border-radius: 3px;",
+    "color: " + color + ";",
+    ...args
+  );
+}
+
+// 封装console错误输出的函数
+function logError(message, color = "red", ...args) {
+  console.error(
+    "%c Rush4award %c " + message,
+    "background: purple; color: white; padding: 2px 4px; border-radius: 3px;",
+    "color: " + color + ";",
+    ...args
+  );
+}
 
 // 定时兑换的时间设置，格式为"HH:MM:SS:mmm"，例如"01:00:00:000"表示1点整定时，设置为"0"则不启用定时功能
 const TimerTime = "01:00:00:200"; // 在这里设置定时时间
@@ -159,7 +179,7 @@ const workerJs = function () {
     
     // 确保消息是对象且符合规定的格式
     if (!data || typeof data !== 'object' || !data.TaskName || !('Delay' in data)) {
-      console.error('%c Rush4award %c Worker：收到无效消息格式: ', "background: purple; color: white; padding: 2px 4px; border-radius: 3px;", "color: red;", data);
+      logError('Worker：收到无效消息格式: ', "red", data);
       return;
     }
     
@@ -170,7 +190,7 @@ const workerJs = function () {
     if (handler) {
       handler(TaskName, Delay, Data);
     } else {
-      console.error(`%c Rush4award %c Worker: 未找到处理器，任务类型: ${TaskName}`, "background: purple; color: white; padding: 2px 4px; border-radius: 3px;", "color: red;");
+      logError(`Worker: 未找到处理器，任务类型: ${TaskName}`, "red");
     }
   });
 };
@@ -241,7 +261,7 @@ window.fetch = function (input, init = {}) {
           .json()
           .then((res) => {
             // 根据返回码调整请求速度
-            console.log("%c Rush4award %c ", "background: purple; color: white; padding: 2px 4px; border-radius: 3px;", "color: black;", res);
+            logMessage(res, "black", res);
             if (res.code === 202100) { // 202100通常表示需要验证码
               document.querySelector("a.geetest_close")?.click() // 关闭验证码
               worker.postMessage({
@@ -258,7 +278,7 @@ window.fetch = function (input, init = {}) {
         return res;
       })
       .catch((e) => {
-        console.log("%c Rush4award %c 请求错误", "background: purple; color: white; padding: 2px 4px; border-radius: 3px;", "color: black;", e);
+        logMessage("请求错误", "black", e);
       });
   }
   // 对其他请求，正常调用原始的fetch函数
@@ -281,7 +301,7 @@ function enableDisabledButton() {
     (targetButton) => {
       // 先移除禁用状态
       targetButton.classList.remove('disable');
-      console.log("%c Rush4award %c 已启用按钮", "background: purple; color: white; padding: 2px 4px; border-radius: 3px;", "color: green;");
+      logMessage("已启用按钮", "green");
       
       // 创建针对这个按钮的观察器
       const observer = new MutationObserver((mutations) => {
@@ -290,7 +310,7 @@ function enableDisabledButton() {
             // 当按钮的class属性变化且包含disable类时，移除该类
             if (targetButton.classList.contains('disable')) {
               targetButton.classList.remove('disable');
-              console.log("%c Rush4award %c 已启用按钮", "background: purple; color: white; padding: 2px 4px; border-radius: 3px;", "color: green;");
+              logMessage("已启用按钮", "green");
             }
           }
         });
@@ -390,7 +410,7 @@ window.addEventListener("load", function () {
     100,  // 每次间隔100ms
     3000,  // 超时时间3秒
     () => {
-      console.log("%c Rush4award %c 等待超时 刷新", "background: purple; color: white; padding: 2px 4px; border-radius: 3px;", "color: red;");
+      logMessage("等待超时 刷新", "red");
       window.location.reload();
     }
   );
@@ -411,7 +431,7 @@ function waitForElement(condition, callback, interval = 100, timeout = 3000, fai
       
       if (elapsed >= timeout) {
         // 超过超时时间，执行失败回调
-        console.log("%c Rush4award %c 等待超时", "background: purple; color: white; padding: 2px 4px; border-radius: 3px;", "color: red;");
+        logMessage("等待超时", "red");
         if (typeof failCallback === 'function') {
           failCallback();
         }
@@ -420,7 +440,7 @@ function waitForElement(condition, callback, interval = 100, timeout = 3000, fai
       }
       
       // 输出等待信息
-      console.log(`%c Rush4award %c 等待初始化...(${(elapsed/1000).toFixed(2)}s/${(timeout/1000).toFixed(2)}s)`, "background: purple; color: white; padding: 2px 4px; border-radius: 3px;", "color: black;");
+      logMessage(`等待初始化...(${(elapsed/1000).toFixed(2)}s/${(timeout/1000).toFixed(2)}s)`, "black");
       setTimeout(check, interval);
     }
   }
@@ -432,13 +452,13 @@ function waitForElement(condition, callback, interval = 100, timeout = 3000, fai
 function registerAllHandlers() {
   // 注册信号处理器 - 执行领取操作
   registerHandler("signal", () => {
-    console.log("%c Rush4award %c 收到信号: 执行领取操作", "background: purple; color: white; padding: 2px 4px; border-radius: 3px;", "color: black;");
+    logMessage("收到信号: 执行领取操作", "black");
     awardInstance.handelReceive();
   });
 
   // 注册定时器到达处理器
   registerHandler("timerReached", () => {
-    console.log("%c Rush4award %c 定时时间已到！执行领取操作", "background: purple; color: white; padding: 2px 4px; border-radius: 3px;", "color: red;");
+    logMessage("定时时间已到！执行领取操作", "red");
     awardInstance.handelReceive();
   });
 
@@ -486,7 +506,7 @@ function registerAllHandlers() {
 
 // 初始化奖励相关功能
 function initializeAward() {
-  console.log("%c Rush4award %c 页面加载完成", "background: purple; color: white; padding: 2px 4px; border-radius: 3px;", "color: black;");
+  logMessage("页面加载完成", "black");
 
   // 创建倒计时显示
   createCountdownDisplay();
@@ -502,7 +522,7 @@ function initializeAward() {
 
   // 如果定时功能已启用，则发送定时任务给Worker
   if (TimerTime !== "0") {
-    console.log("%c Rush4award %c 定时功能已启用，设定时间为: " + TimerTime, "background: purple; color: white; padding: 2px 4px; border-radius: 3px;", "color: blue;");
+    logMessage("定时功能已启用，设定时间为: " + TimerTime, "blue");
     worker.postMessage({
       TaskName: "timerTask",
       Delay: 0,
@@ -541,7 +561,7 @@ function initializeAward() {
     if (handler) {
       handler(msgData);
     } else {
-      console.log("%c Rush4award %c 未处理的消息类型: " + msgType, "background: purple; color: white; padding: 2px 4px; border-radius: 3px;", "color: orange;");
+      logMessage("未处理的消息类型: " + msgType, "orange");
     }
   });
 }
