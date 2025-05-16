@@ -1,13 +1,13 @@
 // ==UserScript==
-// @name        rush4award
-// @namespace   vurses
+// @name        rush4award Stable
+// @namespace   github.com/owwkmidream
 // @license     Mit
 // @match       https://www.bilibili.com/blackboard/new-award-exchange.html?task_id=*
 // @version     3.3.0
-// @author      layenh
+// @author      owwk
 // @icon        https://i0.hdslb.com/bfs/activity-plat/static/b9vgSxGaAg.png
-// @homepage    https://github.com/vruses/get-bili-redeem
-// @supportURL  https://github.com/vruses/get-bili-redeem/issues
+// @homepage    https://github.com/owwkmidream/get-bili-redeem
+// @supportURL  https://github.com/owwkmidream/get-bili-redeem/issues
 // @run-at      document-start
 // @grant       none
 // @description 🔥功能介绍：1、支持B站所有激励计划，是否成功取决于b站接口是否更新，与游戏版本无关；2、根据验证码通过情况自适应请求速度；3、支持定时兑换功能
