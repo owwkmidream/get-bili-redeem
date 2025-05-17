@@ -3,7 +3,7 @@
 // @namespace   github.com/owwkmidream
 // @license     Mit
 // @match       https://www.bilibili.com/blackboard/new-award-exchange.html?task_id=*
-// @version     3.5.11
+// @version     3.6.0
 // @author      owwk
 // @icon        https://i0.hdslb.com/bfs/activity-plat/static/b9vgSxGaAg.png
 // @homepage    https://github.com/owwkmidream/get-bili-redeem
@@ -453,13 +453,13 @@ function registerAllHandlers() {
   // 注册信号处理器 - 执行领取操作
   registerHandler("signal", () => {
     logMessage("收到信号: 执行领取操作", "black", new Date().toLocaleTimeString() + "." + String(new Date().getMilliseconds()).padStart(3, '0'));
-    awardInstance.handelReceive();
+    awardInstance.handelReceive("user");
   });
 
   // 注册定时器到达处理器
   registerHandler("timerReached", () => {
     logMessage("定时时间已到！执行领取操作", "red", new Date().toLocaleTimeString() + "." + String(new Date().getMilliseconds()).padStart(3, '0'));
-    awardInstance.handelReceive();
+    awardInstance.handelReceive("user");
   });
 
   // 注册定时器设置处理器（新增）
@@ -564,7 +564,7 @@ function initializeAward() {
   } else {
     // 未启用定时，延迟1秒后执行第一次领取
     setTimeout(() => {
-      awardInstance.handelReceive();
+      awardInstance.handelReceive("user");
     }, 1000);
   }
 
