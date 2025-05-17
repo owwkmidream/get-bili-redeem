@@ -3,7 +3,7 @@
 // @namespace   github.com/owwkmidream
 // @license     Mit
 // @match       https://www.bilibili.com/blackboard/new-award-exchange.html?task_id=*
-// @version     3.6.0
+// @version     3.6.1
 // @author      owwk
 // @icon        https://i0.hdslb.com/bfs/activity-plat/static/b9vgSxGaAg.png
 // @homepage    https://github.com/owwkmidream/get-bili-redeem
@@ -388,7 +388,7 @@ function createBonusInfoDisplay() {
         Data: null
       });
       // 创建worker定时
-      setInterval(() => {
+      window.bonusInterval = setInterval(() => {
         worker.postMessage({
           TaskName: "updateBonusInfo",
           Delay: 0,
@@ -577,6 +577,8 @@ function initializeAward() {
   awardInstance.$watch("cdKey", function (newVal, oldVal) {
     window.fetch = originalFetch;
     worker.terminate();
+    clearInterval(window.bonusInterval);
+    clearInterval(window.countdownInterval);
   });
 
   // 监听Worker消息，使用注册的处理器处理不同类型的消息
