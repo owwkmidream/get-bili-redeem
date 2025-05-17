@@ -3,7 +3,7 @@
 // @namespace   github.com/owwkmidream
 // @license     Mit
 // @match       https://www.bilibili.com/blackboard/new-award-exchange.html?task_id=*
-// @version     3.5.9
+// @version     3.5.10
 // @author      owwk
 // @icon        https://i0.hdslb.com/bfs/activity-plat/static/b9vgSxGaAg.png
 // @homepage    https://github.com/owwkmidream/get-bili-redeem
@@ -112,7 +112,6 @@ const workerJs = function () {
 
     // 注册定时任务处理器
     registerTaskHandler("timerTask", (taskName, delay, data) => {
-      const updateInterval = 100;
       if (!data || data.timerTime === "0") return; // 如果定时设置为0，不处理
 
       // 解析定时时间
@@ -131,7 +130,7 @@ const workerJs = function () {
       // 计算时间差（毫秒）
       let timeLeft = targetTime - now;
 
-      // 设置定时器
+      // 设置定时器 - 只负责精确的定时触发
       manager.set(taskName, () => {
         self.postMessage({
           Msg: "timerReached",
@@ -139,32 +138,13 @@ const workerJs = function () {
         });
       }, timeLeft);
 
-      // 设置每秒倒计时更新
-      if (countdownInterval) clearInterval(countdownInterval);
-      countdownInterval = setInterval(() => {
-        timeLeft -= updateInterval;
-
-        if (timeLeft <= 0) {
-          clearInterval(countdownInterval);
-          countdownInterval = null;
-          return;
+      // 只向主线程发送一次目标时间，让主线程自己处理倒计时显示
+      self.postMessage({
+        Msg: "timerSet",
+        Data: {
+          targetTime: targetTime.getTime() // 发送时间戳更精确
         }
-
-        // 计算剩余时间
-        const h = Math.floor(timeLeft / 3600000);
-        const m = Math.floor((timeLeft % 3600000) / 60000);
-        const s = Math.floor((timeLeft % 60000) / 1000);
-        const ms = timeLeft % 1000;
-
-        // 发送倒计时更新
-        self.postMessage({
-          Msg: "countdown",
-          Data: {
-            timeLeft: `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}:${ms.toString().padStart(3, '0')}`,
-            targetTime: targetTime.toLocaleString()
-          }
-        });
-      }, updateInterval);
+      });
     });
 
     // 注册默认处理器
@@ -469,14 +449,41 @@ function registerAllHandlers() {
     awardInstance.handelReceive();
   });
 
-  // 注册倒计时更新处理器
-  registerHandler("countdown", (data) => {
-    const countdownDiv = document.getElementById('rush4award-countdown');
-    if (countdownDiv) {
-      const timeLeft = data.timeLeft;
-      const targetTime = data.targetTime;
-      countdownDiv.innerHTML = `定时: ${targetTime}<br>倒计时: ${timeLeft}`;
+  // 注册定时器设置处理器（新增）
+  registerHandler("timerSet", (data) => {
+    // 清除可能存在的旧倒计时
+    if (window.countdownInterval) {
+      clearInterval(window.countdownInterval);
     }
+    
+    // 获取目标时间戳
+    const targetTime = new Date(data.targetTime);
+    const updateInterval = 200; // 主线程更新频率可以设置得稍低一些
+    
+    // 在主线程中处理倒计时显示
+    window.countdownInterval = setInterval(() => {
+      const now = new Date();
+      const timeLeft = targetTime - now;
+      
+      if (timeLeft <= 0) {
+        clearInterval(window.countdownInterval);
+        window.countdownInterval = null;
+        return;
+      }
+      
+      // 更新倒计时显示
+      const countdownDiv = document.getElementById('rush4award-countdown');
+      if (countdownDiv) {
+        // 格式化时间
+        const h = Math.floor(timeLeft / 3600000);
+        const m = Math.floor((timeLeft % 3600000) / 60000);
+        const s = Math.floor((timeLeft % 60000) / 1000);
+        const ms = timeLeft % 1000;
+        
+        const formattedTimeLeft = `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}:${ms.toString().padStart(3, '0')}`;
+        countdownDiv.innerHTML = `定时: ${targetTime.toLocaleString()}<br>倒计时: ${formattedTimeLeft}`;
+      }
+    }, updateInterval);
   });
 
   // 注册Worker错误处理器
