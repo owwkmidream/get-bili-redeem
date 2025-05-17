@@ -3,7 +3,7 @@
 // @namespace   vurses
 // @license     Mit
 // @match       https://www.bilibili.com/blackboard/new-award-exchange.html?task_id=*
-// @version     3.5.3
+// @version     3.6.0
 // @author      layenh
 // @icon        https://i0.hdslb.com/bfs/activity-plat/static/b9vgSxGaAg.png
 // @homepage    https://github.com/vruses/get-bili-redeem
@@ -168,7 +168,7 @@ window.addEventListener("load", function () {
       setTimeout(res, 1000);
     })
       .then(() => {
-        awardInstance.handelReceive();
+        awardInstance.handelReceive("user");
       })
       .catch((e) => {
         console.log(e);
@@ -191,7 +191,7 @@ window.addEventListener("load", function () {
   worker.addEventListener("message", function (e) {
     console.log("post to window: " + e.data);
     if (e.data === "receiveTask") {
-      awardInstance.handelReceive();
+      awardInstance.handelReceive("user");
     } else if (e.data === "getInfoTask") {
       // 更新显示信息
       utils.getBounsHistory(awardInstance.actId).then((res) => {
