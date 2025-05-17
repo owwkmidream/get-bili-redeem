@@ -3,7 +3,7 @@
 // @namespace   github.com/owwkmidream
 // @license     Mit
 // @match       https://www.bilibili.com/blackboard/new-award-exchange.html?task_id=*
-// @version     3.5.8
+// @version     3.5.9
 // @author      owwk
 // @icon        https://i0.hdslb.com/bfs/activity-plat/static/b9vgSxGaAg.png
 // @homepage    https://github.com/owwkmidream/get-bili-redeem
@@ -12,6 +12,14 @@
 // @grant       none
 // @description 🔥功能介绍：1、支持B站所有激励计划，是否成功取决于b站接口是否更新，与游戏版本无关；2、根据验证码通过情况自适应请求速度；3、支持定时兑换功能
 // ==/UserScript==
+
+// 定时兑换的时间设置，格式为"HH:MM:SS:mmm"，例如"01:00:00:000"表示1点整定时，设置为"0"则不启用定时功能
+const TimerTime = "01:00:00:200"; // 在这里设置定时时间
+
+// 定义领取奖励的时间间隔（毫秒）
+const ReceiveTime = 1000; // 正常请求间隔：1秒
+const SlowerTime = 10000; // 遇到验证码后的较慢请求间隔：10秒
+const BonusInfoUpdateInterval = 2000; // 奖励信息更新间隔：2秒
 
 // 封装console输出的函数
 function logMessage(message, color = "black", ...args) {
@@ -32,14 +40,6 @@ function logError(message, color = "red", ...args) {
     ...args
   );
 }
-
-// 定时兑换的时间设置，格式为"HH:MM:SS:mmm"，例如"01:00:00:000"表示1点整定时，设置为"0"则不启用定时功能
-const TimerTime = "01:00:00:200"; // 在这里设置定时时间
-
-// 定义领取奖励的时间间隔（毫秒）
-const ReceiveTime = 1000; // 正常请求间隔：1秒
-const SlowerTime = 10000; // 遇到验证码后的较慢请求间隔：10秒
-const BonusInfoUpdateInterval = 2000; // 奖励信息更新间隔：2秒
 
 // 定义Web Worker的代码，用于在后台线程中管理定时任务
 const workerJs = function () {
@@ -304,7 +304,7 @@ function registerHandler(msgType, handler) {
 function enableDisabledButton() {
   // 找到需要监听的按钮
   waitForElement(
-    () => document.querySelector('.button.disable'),
+    () => document.querySelector('.button'),
     (targetButton) => {
       // 先移除禁用状态
       targetButton.classList.remove('disable');
@@ -335,7 +335,7 @@ function enableDisabledButton() {
       }, 3000);
     },
     100,  // 间隔100ms
-    3000  // 超时时间3秒
+    1000  // 超时时间3秒
   );
 }
 
@@ -438,7 +438,7 @@ function waitForElement(condition, callback, interval = 100, timeout = 3000, fai
 
       if (elapsed >= timeout) {
         // 超过超时时间，执行失败回调
-        logMessage("等待超时", "red");
+        logMessage("等待超时", "red", condition);
         if (typeof failCallback === 'function') {
           failCallback();
         }
@@ -459,13 +459,13 @@ function waitForElement(condition, callback, interval = 100, timeout = 3000, fai
 function registerAllHandlers() {
   // 注册信号处理器 - 执行领取操作
   registerHandler("signal", () => {
-    logMessage("收到信号: 执行领取操作", "black");
+    logMessage("收到信号: 执行领取操作", "black", new Date().toLocaleTimeString() + "." + String(new Date().getMilliseconds()).padStart(3, '0'));
     awardInstance.handelReceive();
   });
 
   // 注册定时器到达处理器
   registerHandler("timerReached", () => {
-    logMessage("定时时间已到！执行领取操作", "red");
+    logMessage("定时时间已到！执行领取操作", "red", new Date().toLocaleTimeString() + "." + String(new Date().getMilliseconds()).padStart(3, '0'));
     awardInstance.handelReceive();
   });
 
@@ -492,7 +492,7 @@ function registerAllHandlers() {
 
     if (totalStockEl && cdKeyEl && dayLeftEl) {
       if (awardInstance.bounsInfo.status === 6) {
-        utils.getBonusHistory(awardInstance.actId).then((res) => {
+        utils.getBounsHistory(awardInstance.actId).then((res) => {
           // 根据活动id取出对应兑换码
           const id = awardInstance.awardInfo.award_inner_id || 0;
           const i = res?.list?.find((t) => t.award_id === id);
@@ -500,7 +500,7 @@ function registerAllHandlers() {
           cdKeyEl.innerHTML = `cdKey：<span onclick="navigator.clipboard.writeText('${awardInstance.cdKey}'); this.innerHTML = '${awardInstance.cdKey}<span style=\\'color:purple;\\'> 复制成功</span>'">${awardInstance.cdKey}</span>`;
         });
       }
-      utils.getBonusInfo(awardInstance.taskId).then((res) => {
+      utils.getBounsInfo(awardInstance.taskId).then((res) => {
         totalStockEl.textContent = `总剩余量：${res.stock_info.total_stock}%`;
         const desc = awardInstance.awardInfo.award_description;
         const match = desc.match(/(\d{2,}).*?(\d{2,})份/);
