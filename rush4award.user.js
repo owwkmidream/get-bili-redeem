@@ -3,7 +3,7 @@
 // @namespace   github.com/owwkmidream
 // @license     Mit
 // @match       https://www.bilibili.com/blackboard/new-award-exchange.html?task_id=*
-// @version     3.5.10
+// @version     3.5.11
 // @author      owwk
 // @icon        https://i0.hdslb.com/bfs/activity-plat/static/b9vgSxGaAg.png
 // @homepage    https://github.com/owwkmidream/get-bili-redeem
@@ -103,12 +103,20 @@ const workerJs = function () {
   // 注册所有任务处理器
   function registerAllTaskHandlers() {
     // 注册接收任务处理器
-    registerTaskHandler("receiveTask", (taskName, delay, data) => {
-      manager.set(taskName, () => self.postMessage({
-        Msg: "signal",
-        Data: null
-      }), delay);
-    });
+    registerTaskHandler("receiveTask", (() => {
+      let lastTaskTime = 0;
+      return (taskName, delay, data) => {
+        const now = Date.now();
+        const actualDelay = lastTaskTime === 0 ? delay : Math.max(delay - (now - lastTaskTime), 0);
+        manager.set(taskName, () => {
+          lastTaskTime = Date.now();
+          self.postMessage({
+            Msg: "signal", 
+            Data: null
+          });
+        }, actualDelay);
+      };
+    })());
 
     // 注册定时任务处理器
     registerTaskHandler("timerTask", (taskName, delay, data) => {
@@ -374,6 +382,11 @@ function createBonusInfoDisplay() {
       stockDiv.appendChild(dayLeftEl);
       cdKeyEl.parentNode.insertBefore(stockDiv, cdKeyEl.nextSibling);
 
+      worker.postMessage({
+        TaskName: "updateBonusInfo",
+        Delay: 0,
+        Data: null
+      });
       // 创建worker定时
       setInterval(() => {
         worker.postMessage({
