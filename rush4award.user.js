@@ -3,7 +3,7 @@
 // @namespace   github.com/owwkmidream
 // @license     Mit
 // @match       https://www.bilibili.com/blackboard/new-award-exchange.html?task_id=*
-// @version     3.6.1
+// @version     3.6.2
 // @author      owwk
 // @icon        https://i0.hdslb.com/bfs/activity-plat/static/b9vgSxGaAg.png
 // @homepage    https://github.com/owwkmidream/get-bili-redeem
@@ -90,7 +90,6 @@ const workerJs = function () {
 
   // 创建定时器管理器实例
   const manager = new TimerManager();
-  let countdownInterval = null;
 
   // 任务处理器映射表
   const taskHandlers = {};
@@ -449,6 +448,35 @@ function waitForElement(condition, callback, interval = 100, timeout = 3000, fai
   check();
 }
 
+function getBonusInfo() {
+  const totalStockEl = document.querySelector('p.total-stock');
+  const dayLeftEl = document.querySelector('p.day-left');
+  const cdKeyEl = document.querySelector('p.cd-key');
+
+  if (totalStockEl && cdKeyEl && dayLeftEl) {
+    if (awardInstance.bounsInfo.status === 6) {
+      utils.getBounsHistory(awardInstance.actId).then((res) => {
+        // 根据活动id取出对应兑换码
+        const id = awardInstance.awardInfo.award_inner_id || 0;
+        const i = res?.list?.find((t) => t.award_id === id);
+        awardInstance.cdKey = i?.extra_info?.cdkey_content || "";
+        cdKeyEl.innerHTML = `cdKey：<span onclick="navigator.clipboard.writeText('${awardInstance.cdKey}'); this.innerHTML = '${awardInstance.cdKey}<span style=\\'color:purple;\\'> 复制成功</span>'">${awardInstance.cdKey}</span>`;
+      });
+    }
+    utils.getBounsInfo(awardInstance.taskId).then((res) => {
+      totalStockEl.textContent = `总剩余量：${res.stock_info.total_stock}%`;
+      const desc = awardInstance.awardInfo.award_description;
+      const match = desc.match(/(\d{2,}).*?(\d{2,})份/);
+      if (match) {
+        const [_, total, daily] = match;
+        const dayPercent = (daily / total) * 100;
+        const daysLeft = Math.ceil(res.stock_info.total_stock / dayPercent);
+        dayLeftEl.textContent = `${daysLeft}天`;
+      }
+    });
+  }
+}
+
 function registerAllHandlers() {
   // 注册信号处理器 - 执行领取操作
   registerHandler("signal", () => {
@@ -506,32 +534,7 @@ function registerAllHandlers() {
 
   // 注册奖励信息更新处理器
   registerHandler("updateBonusInfo", () => {
-    const totalStockEl = document.querySelector('p.total-stock');
-    const dayLeftEl = document.querySelector('p.day-left');
-    const cdKeyEl = document.querySelector('p.cd-key');
-
-    if (totalStockEl && cdKeyEl && dayLeftEl) {
-      if (awardInstance.bounsInfo.status === 6) {
-        utils.getBounsHistory(awardInstance.actId).then((res) => {
-          // 根据活动id取出对应兑换码
-          const id = awardInstance.awardInfo.award_inner_id || 0;
-          const i = res?.list?.find((t) => t.award_id === id);
-          awardInstance.cdKey = i?.extra_info?.cdkey_content || "";
-          cdKeyEl.innerHTML = `cdKey：<span onclick="navigator.clipboard.writeText('${awardInstance.cdKey}'); this.innerHTML = '${awardInstance.cdKey}<span style=\\'color:purple;\\'> 复制成功</span>'">${awardInstance.cdKey}</span>`;
-        });
-      }
-      utils.getBounsInfo(awardInstance.taskId).then((res) => {
-        totalStockEl.textContent = `总剩余量：${res.stock_info.total_stock}%`;
-        const desc = awardInstance.awardInfo.award_description;
-        const match = desc.match(/(\d{2,}).*?(\d{2,})份/);
-        if (match) {
-          const [_, total, daily] = match;
-          const dayPercent = (daily / total) * 100;
-          const daysLeft = Math.ceil(res.stock_info.total_stock / dayPercent);
-          dayLeftEl.textContent = `${daysLeft}天`;
-        }
-      });
-    }
+    getBonusInfo();
   });
 }
 
@@ -577,6 +580,8 @@ function initializeAward() {
   awardInstance.$watch("cdKey", function (newVal, oldVal) {
     window.fetch = originalFetch;
     worker.terminate();
+    URL.revokeObjectURL(url);
+    getBonusInfo();
     clearInterval(window.bonusInterval);
     clearInterval(window.countdownInterval);
   });
