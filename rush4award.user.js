@@ -3,7 +3,8 @@
 // @namespace   vurses
 // @license     Mit
 // @match       https://www.bilibili.com/blackboard/new-award-exchange.html?task_id=*
-// @version     3.6.0
+// @match       https://www.bilibili.com/blackboard/era/award-exchange.html?task_id=*
+// @version     3.7.0
 // @author      layenh
 // @icon        https://i0.hdslb.com/bfs/activity-plat/static/b9vgSxGaAg.png
 // @homepage    https://github.com/vruses/get-bili-redeem
@@ -88,23 +89,40 @@ const originalCall = Function.prototype.call;
 
 Function.prototype.call = function (...args) {
   if (this.name === "fb94") {
-    let temp = this.toString();
-    temp.indexOf("this.$nextTick(()=>{}),");
-    temp = temp.replace(
-      `this.$nextTick(()=>{}),`,
-      (res) =>
-        res +
-        "Object.assign(window,{awardInstance:this}),Object.assign(window,{utils:v}),"
-    );
-    // 禁止pub&notify错误页消息
-    temp = temp.replace(
-      `setCommonDialog(t){b.commonErrorDialog=t},`,
-      `setCommonDialog(t){},`
-    );
-    // 防止不再弹出验证码
-    temp = temp.replace(`e.destroy()`, ``);
-    temp = eval("(" + temp + ")");
-    return originalCall.apply(temp, args);
+    let funcStr = this.toString();
+    const oldIndex = funcStr.indexOf("this.$nextTick(()=>{}),");
+    // const newIndex = funcStr.indexOf("this.$nextTick((function(){})),");
+    if (oldIndex !== -1) {
+      funcStr.indexOf("this.$nextTick(()=>{}),");
+      funcStr = funcStr.replace(
+        `this.$nextTick(()=>{}),`,
+        (res) =>
+          res +
+          "Object.assign(window,{awardInstance:this}),Object.assign(window,{utils:v}),"
+      );
+      // 禁止pub&notify错误页消息
+      funcStr = funcStr.replace(
+        `setCommonDialog(t){b.commonErrorDialog=t},`,
+        `setCommonDialog(t){},`
+      );
+      // 防止不再弹出验证码
+      funcStr = funcStr.replace(`e.destroy()`, ``);
+      funcStr = eval("(" + funcStr + ")");
+    } else {
+      // 新版页面patch
+      funcStr.indexOf("this.$nextTick((function(){})),");
+      funcStr = funcStr.replace(
+        `this.$nextTick((function(){})),`,
+        (res) =>
+          res +
+          "Object.assign(window,{awardInstance:this}),Object.assign(window,{utils:{getBounsInfo:L,getBounsHistory:K}}),"
+      );
+      // 禁止pub&notify错误页消息
+      funcStr = funcStr.replace(`I.commonErrorDialog=t`, ``);
+      funcStr = eval("(" + funcStr + ")");
+    }
+
+    return originalCall.apply(funcStr, args);
   }
   return originalCall.apply(this, args);
 };
