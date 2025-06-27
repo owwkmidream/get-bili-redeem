@@ -4,7 +4,7 @@
 // @license     Mit
 // @match       https://www.bilibili.com/blackboard/new-award-exchange.html?task_id=*
 // @match       https://www.bilibili.com/blackboard/era/award-exchange.html?task_id=*
-// @version     3.7.0
+// @version     3.8.0
 // @author      layenh
 // @icon        https://i0.hdslb.com/bfs/activity-plat/static/b9vgSxGaAg.png
 // @homepage    https://github.com/vruses/get-bili-redeem
@@ -38,7 +38,7 @@ const storage = {
 };
 
 let ReceiveTime = storage.get("ReceiveTime", 1000);
-let SlowerTime = storage.get("SlowerTime", 10000);
+let SlowerTime = storage.get("SlowerTime", 3000);
 
 const workerJs = function () {
   class TimerManager {
@@ -156,6 +156,7 @@ window.fetch = function (input, init = {}) {
           .json()
           .then((res) => {
             if (res.code === 202100) {
+              // 由于移除了验证码机制，这部分逻辑可能会在未来移除
               document.querySelector("a.geetest_close")?.click();
               worker.postMessage({ taskName: "receiveTask", time: SlowerTime });
             } else {
@@ -207,7 +208,7 @@ window.addEventListener("load", function () {
   // 定时获取新的信息
   setInterval(() => {
     worker.postMessage({ taskName: "getInfoTask", time: 0 });
-  }, 3000);
+  }, SlowerTime);
   console.log(awardInstance);
   awardInstance.$watch("pageError", function (newVal, oldVal) {
     this.pageError = false;
@@ -217,7 +218,6 @@ window.addEventListener("load", function () {
     worker.terminate();
   });
   worker.addEventListener("message", function (e) {
-    console.log("post to window: " + e.data);
     if (e.data === "receiveTask") {
       awardInstance.handelReceive("user");
     } else if (e.data === "getInfoTask") {
@@ -278,7 +278,7 @@ const intervalSlower = document.createElement("div");
 intervalSlower.slot = "interval-slower";
 intervalSlower.style.display = "flex";
 intervalSlower.style.alignItems = "center";
-intervalSlower.innerHTML = `<span style="width: 70px">验证间隔</span>`;
+intervalSlower.innerHTML = `<span style="width: 70px">信息同步</span>`;
 
 intervalFaster.append(receiveInput);
 intervalSlower.append(validateInput);
