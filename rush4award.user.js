@@ -16,7 +16,6 @@
 // @description 🔥功能介绍：1、支持B站所有激励计划，是否成功取决于b站接口是否更新，与游戏版本无关；2、根据验证码通过情况自适应请求速度
 // ==/UserScript==
 
-// utils.request(p)=>info,inner
 const storage = {
   set(key, value) {
     try {
@@ -110,12 +109,23 @@ Function.prototype.call = function (...args) {
       funcStr = eval("(" + funcStr + ")");
     } else {
       // 新版页面patch
-      funcStr.indexOf("this.$nextTick((function(){})),");
+      // 定位目标函数，获取被压缩的函数名(A-Z)
+      const target1 = "(this.taskKey)";
+      const index1 = funcStr.indexOf(target1);
+      // 用于暴露获取奖励信息的函数
+      const infoFuncName = funcStr.charAt(index1 - 1);
+
+      const target2 = "(this.actId).then";
+      const index2 = funcStr.indexOf(target2);
+      // 用于暴露获取奖励cdk的函数
+      const historyFuncName = funcStr.charAt(index2 - 1);
+
+      // 动态注入函数名
       funcStr = funcStr.replace(
         `this.$nextTick((function(){})),`,
         (res) =>
           res +
-          "Object.assign(window,{awardInstance:this}),Object.assign(window,{utils:{getBounsInfo:L,getBounsHistory:K}}),"
+          `Object.assign(window,{awardInstance:this}),Object.assign(window,{utils:{getBounsInfo:${infoFuncName},getBounsHistory:${historyFuncName}}}),`
       );
       // 禁止pub&notify错误页消息
       funcStr = funcStr.replace(`I.commonErrorDialog=t`, ``);
