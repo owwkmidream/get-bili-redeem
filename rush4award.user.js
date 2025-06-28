@@ -4,7 +4,7 @@
 // @license     Mit
 // @match       https://www.bilibili.com/blackboard/new-award-exchange.html?task_id=*
 // @match       https://www.bilibili.com/blackboard/era/award-exchange.html?task_id=*
-// @version     3.7.0
+// @version     3.8.0
 // @author      layenh
 // @icon        https://i0.hdslb.com/bfs/activity-plat/static/b9vgSxGaAg.png
 // @homepage    https://github.com/vruses/get-bili-redeem
@@ -16,7 +16,6 @@
 // @description 🔥功能介绍：1、支持B站所有激励计划，是否成功取决于b站接口是否更新，与游戏版本无关；2、根据验证码通过情况自适应请求速度
 // ==/UserScript==
 
-// utils.request(p)=>info,inner
 const storage = {
   set(key, value) {
     try {
@@ -39,7 +38,7 @@ const storage = {
 };
 
 let ReceiveTime = storage.get("ReceiveTime", 1000);
-let SlowerTime = storage.get("SlowerTime", 10000);
+let SlowerTime = storage.get("SlowerTime", 3000);
 
 const workerJs = function () {
   class TimerManager {
@@ -110,12 +109,23 @@ Function.prototype.call = function (...args) {
       funcStr = eval("(" + funcStr + ")");
     } else {
       // 新版页面patch
-      funcStr.indexOf("this.$nextTick((function(){})),");
+      // 定位目标函数，获取被压缩的函数名(A-Z)
+      const target1 = "(this.taskKey)";
+      const index1 = funcStr.indexOf(target1);
+      // 用于暴露获取奖励信息的函数
+      const infoFuncName = funcStr.charAt(index1 - 1);
+
+      const target2 = "(this.actId).then";
+      const index2 = funcStr.indexOf(target2);
+      // 用于暴露获取奖励cdk的函数
+      const historyFuncName = funcStr.charAt(index2 - 1);
+
+      // 动态注入函数名
       funcStr = funcStr.replace(
         `this.$nextTick((function(){})),`,
         (res) =>
           res +
-          "Object.assign(window,{awardInstance:this}),Object.assign(window,{utils:{getBounsInfo:L,getBounsHistory:K}}),"
+          `Object.assign(window,{awardInstance:this}),Object.assign(window,{utils:{getBounsInfo:${infoFuncName},getBounsHistory:${historyFuncName}}}),`
       );
       // 禁止pub&notify错误页消息
       funcStr = funcStr.replace(`I.commonErrorDialog=t`, ``);
@@ -146,6 +156,7 @@ window.fetch = function (input, init = {}) {
           .json()
           .then((res) => {
             if (res.code === 202100) {
+              // 由于移除了验证码机制，这部分逻辑可能会在未来移除
               document.querySelector("a.geetest_close")?.click();
               worker.postMessage({ taskName: "receiveTask", time: SlowerTime });
             } else {
@@ -197,7 +208,7 @@ window.addEventListener("load", function () {
   // 定时获取新的信息
   setInterval(() => {
     worker.postMessage({ taskName: "getInfoTask", time: 0 });
-  }, 3000);
+  }, SlowerTime);
   console.log(awardInstance);
   awardInstance.$watch("pageError", function (newVal, oldVal) {
     this.pageError = false;
@@ -207,7 +218,6 @@ window.addEventListener("load", function () {
     worker.terminate();
   });
   worker.addEventListener("message", function (e) {
-    console.log("post to window: " + e.data);
     if (e.data === "receiveTask") {
       awardInstance.handelReceive("user");
     } else if (e.data === "getInfoTask") {
@@ -268,7 +278,7 @@ const intervalSlower = document.createElement("div");
 intervalSlower.slot = "interval-slower";
 intervalSlower.style.display = "flex";
 intervalSlower.style.alignItems = "center";
-intervalSlower.innerHTML = `<span style="width: 70px">验证间隔</span>`;
+intervalSlower.innerHTML = `<span style="width: 70px">信息同步</span>`;
 
 intervalFaster.append(receiveInput);
 intervalSlower.append(validateInput);
