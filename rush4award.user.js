@@ -3,7 +3,7 @@
 // @namespace   github.com/owwkmidream
 // @license     Mit
 // @match       https://www.bilibili.com/blackboard/new-award-exchange.html?task_id=*
-// @version     3.6.2
+// @version     3.7.0
 // @author      owwk
 // @icon        https://i0.hdslb.com/bfs/activity-plat/static/b9vgSxGaAg.png
 // @homepage    https://github.com/owwkmidream/get-bili-redeem
@@ -19,7 +19,7 @@ const TimerTime = "01:00:00:200"; // 在这里设置定时时间
 // 定义领取奖励的时间间隔（毫秒）
 const ReceiveTime = 1000; // 正常请求间隔：1秒
 const SlowerTime = 10000; // 遇到验证码后的较慢请求间隔：10秒
-const BonusInfoUpdateInterval = 2000; // 奖励信息更新间隔：2秒
+const BonusInfoUpdateInterval = 3000; // 奖励信息更新间隔：3秒
 
 // 封装console输出的函数
 function logMessage(message, color = "black", ...args) {
@@ -202,30 +202,51 @@ const originalCall = Function.prototype.call;
 Function.prototype.call = function (...args) {
   // 检查当前函数名是否为"fb94"（B站奖励组件的关键函数）
   if (this.name === "fb94") {
-    let temp = this.toString(); // 获取函数的字符串表示
+    let funcStr = this.toString();
+    const oldIndex = funcStr.indexOf("this.$nextTick(()=>{}),");
+    // const newIndex = funcStr.indexOf("this.$nextTick((function(){})),");
+    if (oldIndex !== -1) {
+      funcStr.indexOf("this.$nextTick(()=>{}),");
+      funcStr = funcStr.replace(
+        `this.$nextTick(()=>{}),`,
+        (res) =>
+          res +
+          "Object.assign(window,{awardInstance:this}),Object.assign(window,{utils:v}),"
+      );
+      // 禁止pub&notify错误页消息
+      funcStr = funcStr.replace(
+        `setCommonDialog(t){b.commonErrorDialog=t},`,
+        `setCommonDialog(t){},`
+      );
+      // 防止不再弹出验证码
+      funcStr = funcStr.replace(`e.destroy()`, ``);
+      funcStr = eval("(" + funcStr + ")");
+    } else {
+      // 新版页面patch
+      // 定位目标函数，获取被压缩的函数名(A-Z)
+      const target1 = "(this.taskKey)";
+      const index1 = funcStr.indexOf(target1);
+      // 用于暴露获取奖励信息的函数
+      const infoFuncName = funcStr.charAt(index1 - 1);
 
-    // 修改函数代码，将组件实例暴露到window对象上
-    temp = temp.replace(
-      `this.$nextTick(()=>{}),`,
-      (res) =>
-        res +
-        "Object.assign(window,{awardInstance:this}),Object.assign(window,{utils:v})," // 暴露
-    );
+      const target2 = "(this.actId).then";
+      const index2 = funcStr.indexOf(target2);
+      // 用于暴露获取奖励cdk的函数
+      const historyFuncName = funcStr.charAt(index2 - 1);
 
-    // 禁用错误对话框显示
-    temp = temp.replace(
-      `setCommonDialog(t){b.commonErrorDialog=t},`,
-      `setCommonDialog(t){},`
-    );
+      // 动态注入函数名
+      funcStr = funcStr.replace(
+        `this.$nextTick((function(){})),`,
+        (res) =>
+          res +
+          `Object.assign(window,{awardInstance:this}),Object.assign(window,{utils:{getBounsInfo:${infoFuncName},getBounsHistory:${historyFuncName}}}),`
+      );
+      // 禁止pub&notify错误页消息
+      funcStr = funcStr.replace(`I.commonErrorDialog=t`, ``);
+      funcStr = eval("(" + funcStr + ")");
+    }
 
-    // 防止验证码组件被销毁
-    temp = temp.replace(`e.destroy()`, ``);
-
-    // 将修改后的字符串转换回函数
-    temp = eval("(" + temp + ")");
-
-    // 使用修改后的函数替代原函数
-    return originalCall.apply(temp, args);
+    return originalCall.apply(funcStr, args);
   }
   // 对其他函数，正常调用原始的call方法
   return originalCall.apply(this, args);
@@ -257,6 +278,7 @@ window.fetch = function (input, init = {}) {
             // 根据返回码调整请求速度
             logMessage(res, "black", res);
             if (res.code === 202100) { // 202100通常表示需要验证码
+              // 由于移除了验证码机制，这部分逻辑可能会在未来移除
               document.querySelector("a.geetest_close")?.click() // 关闭验证码
               worker.postMessage({
                 TaskName: "receiveTask",
