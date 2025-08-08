@@ -3,7 +3,8 @@
 // @namespace   github.com/owwkmidream
 // @license     Mit
 // @match       https://www.bilibili.com/blackboard/new-award-exchange.html?task_id=*
-// @version     3.6.2
+// @match       https://www.bilibili.com/blackboard/era/award-exchange.html?task_id=*
+// @version     3.7.0
 // @author      owwk
 // @icon        https://i0.hdslb.com/bfs/activity-plat/static/b9vgSxGaAg.png
 // @homepage    https://github.com/owwkmidream/get-bili-redeem
@@ -14,12 +15,12 @@
 // ==/UserScript==
 
 // 定时兑换的时间设置，格式为"HH:MM:SS:mmm"，例如"01:00:00:000"表示1点整定时，设置为"0"则不启用定时功能
-const TimerTime = "01:00:00:200"; // 在这里设置定时时间
+const TimerTime = "00:59:57:020"; // 在这里设置定时时间
 
 // 定义领取奖励的时间间隔（毫秒）
-const ReceiveTime = 1000; // 正常请求间隔：1秒
+const ReceiveTime = 1020; // 正常请求间隔：1秒
 const SlowerTime = 10000; // 遇到验证码后的较慢请求间隔：10秒
-const BonusInfoUpdateInterval = 2000; // 奖励信息更新间隔：2秒
+const BonusInfoUpdateInterval = 3000; // 奖励信息更新间隔：3秒
 
 // 封装console输出的函数
 function logMessage(message, color = "black", ...args) {
@@ -110,7 +111,7 @@ const workerJs = function () {
         manager.set(taskName, () => {
           lastTaskTime = Date.now();
           self.postMessage({
-            Msg: "signal", 
+            Msg: "signal",
             Data: null
           });
         }, actualDelay);
@@ -202,30 +203,51 @@ const originalCall = Function.prototype.call;
 Function.prototype.call = function (...args) {
   // 检查当前函数名是否为"fb94"（B站奖励组件的关键函数）
   if (this.name === "fb94") {
-    let temp = this.toString(); // 获取函数的字符串表示
+    let funcStr = this.toString();
+    const oldIndex = funcStr.indexOf("this.$nextTick(()=>{}),");
+    // const newIndex = funcStr.indexOf("this.$nextTick((function(){})),");
+    if (oldIndex !== -1) {
+      funcStr.indexOf("this.$nextTick(()=>{}),");
+      funcStr = funcStr.replace(
+        `this.$nextTick(()=>{}),`,
+        (res) =>
+          res +
+          "Object.assign(window,{awardInstance:this}),Object.assign(window,{utils:v}),"
+      );
+      // 禁止pub&notify错误页消息
+      funcStr = funcStr.replace(
+        `setCommonDialog(t){b.commonErrorDialog=t},`,
+        `setCommonDialog(t){},`
+      );
+      // 防止不再弹出验证码
+      funcStr = funcStr.replace(`e.destroy()`, ``);
+      funcStr = eval("(" + funcStr + ")");
+    } else {
+      // 新版页面patch
+      // 定位目标函数，获取被压缩的函数名(A-Z)
+      const target1 = "(this.taskKey)";
+      const index1 = funcStr.indexOf(target1);
+      // 用于暴露获取奖励信息的函数
+      const infoFuncName = funcStr.charAt(index1 - 1);
 
-    // 修改函数代码，将组件实例暴露到window对象上
-    temp = temp.replace(
-      `this.$nextTick(()=>{}),`,
-      (res) =>
-        res +
-        "Object.assign(window,{awardInstance:this}),Object.assign(window,{utils:v})," // 暴露
-    );
+      const target2 = "(this.actId).then";
+      const index2 = funcStr.indexOf(target2);
+      // 用于暴露获取奖励cdk的函数
+      const historyFuncName = funcStr.charAt(index2 - 1);
 
-    // 禁用错误对话框显示
-    temp = temp.replace(
-      `setCommonDialog(t){b.commonErrorDialog=t},`,
-      `setCommonDialog(t){},`
-    );
+      // 动态注入函数名
+      funcStr = funcStr.replace(
+        `this.$nextTick((function(){})),`,
+        (res) =>
+          res +
+          `Object.assign(window,{awardInstance:this}),Object.assign(window,{utils:{getBounsInfo:${infoFuncName},getBounsHistory:${historyFuncName}}}),`
+      );
+      // 禁止pub&notify错误页消息
+      funcStr = funcStr.replace(`I.commonErrorDialog=t`, ``);
+      funcStr = eval("(" + funcStr + ")");
+    }
 
-    // 防止验证码组件被销毁
-    temp = temp.replace(`e.destroy()`, ``);
-
-    // 将修改后的字符串转换回函数
-    temp = eval("(" + temp + ")");
-
-    // 使用修改后的函数替代原函数
-    return originalCall.apply(temp, args);
+    return originalCall.apply(funcStr, args);
   }
   // 对其他函数，正常调用原始的call方法
   return originalCall.apply(this, args);
@@ -257,6 +279,7 @@ window.fetch = function (input, init = {}) {
             // 根据返回码调整请求速度
             logMessage(res, "black", res);
             if (res.code === 202100) { // 202100通常表示需要验证码
+              // 由于移除了验证码机制，这部分逻辑可能会在未来移除
               document.querySelector("a.geetest_close")?.click() // 关闭验证码
               worker.postMessage({
                 TaskName: "receiveTask",
@@ -381,11 +404,6 @@ function createBonusInfoDisplay() {
       stockDiv.appendChild(dayLeftEl);
       cdKeyEl.parentNode.insertBefore(stockDiv, cdKeyEl.nextSibling);
 
-      worker.postMessage({
-        TaskName: "updateBonusInfo",
-        Delay: 0,
-        Data: null
-      });
       // 创建worker定时
       window.bonusInterval = setInterval(() => {
         worker.postMessage({
@@ -487,7 +505,11 @@ function registerAllHandlers() {
   // 注册定时器到达处理器
   registerHandler("timerReached", () => {
     logMessage("定时时间已到！执行领取操作", "red", new Date().toLocaleTimeString() + "." + String(new Date().getMilliseconds()).padStart(3, '0'));
-    awardInstance.handelReceive("user");
+    //awardInstance.handelReceive("user");
+    worker.postMessage({
+      TaskName: "receiveTask",
+      Delay: 0
+    }); // 使用正常请求速度
   });
 
   // 注册定时器设置处理器（新增）
@@ -496,22 +518,22 @@ function registerAllHandlers() {
     if (window.countdownInterval) {
       clearInterval(window.countdownInterval);
     }
-    
+
     // 获取目标时间戳
     const targetTime = new Date(data.targetTime);
-    const updateInterval = 200; // 主线程更新频率可以设置得稍低一些
-    
+    const updateInterval = 100; // 主线程更新频率可以设置得稍低一些
+
     // 在主线程中处理倒计时显示
     window.countdownInterval = setInterval(() => {
       const now = new Date();
       const timeLeft = targetTime - now;
-      
+
       if (timeLeft <= 0) {
         clearInterval(window.countdownInterval);
         window.countdownInterval = null;
         return;
       }
-      
+
       // 更新倒计时显示
       const countdownDiv = document.getElementById('rush4award-countdown');
       if (countdownDiv) {
@@ -520,7 +542,7 @@ function registerAllHandlers() {
         const m = Math.floor((timeLeft % 3600000) / 60000);
         const s = Math.floor((timeLeft % 60000) / 1000);
         const ms = timeLeft % 1000;
-        
+
         const formattedTimeLeft = `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}:${ms.toString().padStart(3, '0')}`;
         countdownDiv.innerHTML = `定时: ${targetTime.toLocaleString()}<br>倒计时: ${formattedTimeLeft}`;
       }
@@ -541,6 +563,13 @@ function registerAllHandlers() {
 // 初始化奖励相关功能
 function initializeAward() {
   logMessage("页面加载完成", "black");
+  // 检测是否登录
+  setTimeout(() => {
+    if (awardInstance.isLogin === false) {
+      location.href = "https://www.bilibili.com/";
+    }
+    else logMessage("登录检测通过");
+  }, 1000);
 
   // 创建倒计时显示
   createCountdownDisplay();
