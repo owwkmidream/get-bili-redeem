@@ -4,7 +4,7 @@
 // @license     Mit
 // @match       https://www.bilibili.com/blackboard/new-award-exchange.html?task_id=*
 // @match       https://www.bilibili.com/blackboard/era/award-exchange.html?task_id=*
-// @version     3.7.0
+// @version     3.8.0
 // @author      owwk
 // @icon        https://i0.hdslb.com/bfs/activity-plat/static/b9vgSxGaAg.png
 // @homepage    https://github.com/owwkmidream/get-bili-redeem
@@ -14,11 +14,11 @@
 // @description 🔥功能介绍：1、支持B站所有激励计划，是否成功取决于b站接口是否更新，与游戏版本无关；2、根据验证码通过情况自适应请求速度；3、支持定时兑换功能
 // ==/UserScript==
 
-// 定时兑换的时间设置，格式为"HH:MM:SS:mmm"，例如"01:00:00:000"表示1点整定时，设置为"0"则不启用定时功能
-const TimerTime = "00:59:57:020"; // 在这里设置定时时间
-
+// 支持多个时间，格式为字符串数组。`["0"]` 或空数组 `[]` 则不启用定时功能。
+const TimerTime = ["18:00:00:70", "00:00:00:70", "01:00:00:70"]; // 在这里设置定时时间，例如：["00:00:00:70", "01:00:00:000"]
+ 
 // 定义领取奖励的时间间隔（毫秒）
-const ReceiveTime = 1020; // 正常请求间隔：1秒
+const ReceiveTime = 700; // 正常请求间隔：1秒
 const SlowerTime = 10000; // 遇到验证码后的较慢请求间隔：10秒
 const BonusInfoUpdateInterval = 3000; // 奖励信息更新间隔：3秒
 
@@ -119,24 +119,41 @@ const workerJs = function () {
     })());
 
     // 注册定时任务处理器
-    registerTaskHandler("timerTask", (taskName, delay, data) => {
-      if (!data || data.timerTime === "0") return; // 如果定时设置为0，不处理
-
-      // 解析定时时间
-      const [hours, minutes, seconds, milliseconds] = data.timerTime.split(":").map(Number);
-
-      // 计算目标时间
-      const now = new Date();
-      const targetTime = new Date();
-      targetTime.setHours(hours, minutes, seconds, milliseconds);
-
-      // 如果目标时间已经过去，则设置为明天的同一时间
-      if (targetTime <= now) {
-        targetTime.setDate(targetTime.getDate() + 1);
+    registerTaskHandler("timerTask", (taskName, _delay, data) => {
+      const timerTimes = Array.isArray(data.timerTimes) ? data.timerTimes : [];
+      if (timerTimes.length === 0 || timerTimes.every(t => t === "0" || t === "")) {
+        return; // 没有有效的定时时间
       }
 
-      // 计算时间差（毫秒）
-      let timeLeft = targetTime - now;
+      let nearestTargetTime = null;
+      let minTimeLeft = Infinity;
+      const now = new Date();
+
+      timerTimes.forEach(timeStr => {
+        if (timeStr === "0" || timeStr === "") return;
+
+        const [hours, minutes, seconds, milliseconds] = timeStr.split(":").map(Number);
+        const target = new Date();
+        target.setHours(hours, minutes, seconds, milliseconds);
+        target.setMilliseconds(milliseconds); // 确保毫秒也被设置
+
+        let currentTargetTime = new Date(target); // 克隆，避免修改原始target
+
+        // 如果目标时间已经过去，则设置为明天的同一时间
+        if (currentTargetTime <= now) {
+          currentTargetTime.setDate(currentTargetTime.getDate() + 1);
+        }
+
+        // 计算时间差（毫秒）
+        const timeLeft = currentTargetTime - now;
+
+        if (timeLeft < minTimeLeft) {
+          minTimeLeft = timeLeft;
+          nearestTargetTime = currentTargetTime;
+        }
+      });
+
+      if (nearestTargetTime === null) return; // 没有找到最近的有效时间
 
       // 设置定时器 - 只负责精确的定时触发
       manager.set(taskName, () => {
@@ -144,13 +161,13 @@ const workerJs = function () {
           Msg: "timerReached",
           Data: null
         });
-      }, timeLeft);
+      }, minTimeLeft);
 
       // 只向主线程发送一次目标时间，让主线程自己处理倒计时显示
       self.postMessage({
         Msg: "timerSet",
         Data: {
-          targetTime: targetTime.getTime() // 发送时间戳更精确
+          targetTime: nearestTargetTime.getTime() // 发送最近目标时间的时间戳
         }
       });
     });
@@ -362,7 +379,9 @@ function createCountdownDisplay() {
       sectionTitle.appendChild(patchSpan);
 
       // 创建倒计时容器
-      if (TimerTime !== "0") {
+      // 如果 TimerTime 是数组，判断数组中是否有非"0"或空字符串的值
+      const timerEnabled = Array.isArray(TimerTime) ? TimerTime.some(t => t !== "0" && t !== "") : TimerTime !== "0";
+      if (timerEnabled) {
         const countdownDiv = document.createElement('div');
         countdownDiv.id = 'rush4award-countdown';
         countdownDiv.style.color = 'red';
@@ -566,7 +585,7 @@ function initializeAward() {
   // 检测是否登录
   setTimeout(() => {
     if (awardInstance.isLogin === false) {
-      location.href = "https://www.bilibili.com/";
+      location.assign('https://www.bilibili.com');
     }
     else logMessage("登录检测通过");
   }, 1000);
@@ -584,13 +603,15 @@ function initializeAward() {
   registerAllHandlers();
 
   // 如果定时功能已启用，则发送定时任务给Worker
-  if (TimerTime !== "0") {
-    logMessage("定时功能已启用，设定时间为: " + TimerTime, "blue");
+  const validTimerTimes = Array.isArray(TimerTime) ? TimerTime.filter(t => t !== "0" && t !== "") : (TimerTime === "0" || TimerTime === "" ? [] : [TimerTime]);
+
+  if (validTimerTimes.length > 0) {
+    logMessage("定时功能已启用，等待最近的时间点: " + validTimerTimes.join(", "), "blue");
     worker.postMessage({
       TaskName: "timerTask",
       Delay: 0,
       Data: {
-        timerTime: TimerTime
+        timerTimes: validTimerTimes // 发送所有有效时间给Worker
       }
     });
   } else {
