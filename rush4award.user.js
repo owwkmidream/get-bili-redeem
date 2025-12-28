@@ -4,7 +4,7 @@
 // @license     Mit
 // @match       https://www.bilibili.com/blackboard/new-award-exchange.html?task_id=*
 // @match       https://www.bilibili.com/blackboard/era/award-exchange.html?task_id=*
-// @version     3.8.0
+// @version     3.8.1
 // @author      owwk
 // @icon        https://i0.hdslb.com/bfs/activity-plat/static/b9vgSxGaAg.png
 // @homepage    https://github.com/owwkmidream/get-bili-redeem
@@ -15,10 +15,10 @@
 // ==/UserScript==
 
 // 支持多个时间，格式为字符串数组。`["0"]` 或空数组 `[]` 则不启用定时功能。
-const TimerTime = ["18:00:00:70", "00:00:00:70", "01:00:00:70"]; // 在这里设置定时时间，例如：["00:00:00:70", "01:00:00:000"]
- 
+const TimerTime = ["18:00:00:130", "00:00:00:130", "01:00:00:120"]; // 在这里设置定时时间，例如：["00:00:00:70", "01:00:00:000"]
+
 // 定义领取奖励的时间间隔（毫秒）
-const ReceiveTime = 700; // 正常请求间隔：1秒
+const ReceiveTime = 860; // 正常请求间隔：1秒
 const SlowerTime = 10000; // 遇到验证码后的较慢请求间隔：10秒
 const BonusInfoUpdateInterval = 3000; // 奖励信息更新间隔：3秒
 
@@ -505,9 +505,9 @@ function getBonusInfo() {
       const desc = awardInstance.awardInfo.award_description;
       const match = desc.match(/(\d{2,}).*?(\d{2,})份/);
       if (match) {
-        const [_, total, daily] = match;
-        const dayPercent = (daily / total) * 100;
-        const daysLeft = Math.ceil(res.stock_info.total_stock / dayPercent);
+        const [_, totalAmount, dailyAmount] = match.map(Number); // 转换为数字
+        const currentStockCount = totalAmount * (res.stock_info.total_stock / 100);
+        const daysLeft = Math.ceil(currentStockCount / dailyAmount);
         dayLeftEl.textContent = `${daysLeft}天`;
       }
     });
