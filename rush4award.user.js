@@ -4,7 +4,7 @@
 // @license     Mit
 // @match       https://www.bilibili.com/blackboard/new-award-exchange.html?task_id=*
 // @match       https://www.bilibili.com/blackboard/era/award-exchange.html?task_id=*
-// @version     3.8.1
+// @version     3.8.2
 // @author      owwk
 // @icon        https://i0.hdslb.com/bfs/activity-plat/static/b9vgSxGaAg.png
 // @homepage    https://github.com/owwkmidream/get-bili-redeem
@@ -273,6 +273,33 @@ Function.prototype.call = function (...args) {
 // 保存原始的fetch函数
 const originalFetch = window.fetch;
 
+// 自动领取状态：
+// 1) receiveStarted: 是否已经开始过领取
+// 2) seenDayStockPositiveAfterStart: 开始领取后是否曾出现 day_stock > 0（用于避免初始为0时误停）
+// 3) stoppedByDayStock: 是否已因 day_stock 回落到0而停止
+let receiveStarted = false;
+let seenDayStockPositiveAfterStart = false;
+let stoppedByDayStock = false;
+
+function triggerReceive(source = "unknown") {
+  if (stoppedByDayStock) {
+    logMessage(`已因 day_stock=0 停止自动领取，忽略触发来源: ${source}`, "orange");
+    return;
+  }
+  receiveStarted = true;
+  awardInstance.handelReceive("user");
+}
+
+function queueReceiveTask(delay) {
+  if (stoppedByDayStock) {
+    return;
+  }
+  worker.postMessage({
+    TaskName: "receiveTask",
+    Delay: delay
+  });
+}
+
 // 重写fetch函数
 window.fetch = function (input, init = {}) {
   let url = "";
@@ -298,15 +325,9 @@ window.fetch = function (input, init = {}) {
             if (res.code === 202100) { // 202100通常表示需要验证码
               // 由于移除了验证码机制，这部分逻辑可能会在未来移除
               document.querySelector("a.geetest_close")?.click() // 关闭验证码
-              worker.postMessage({
-                TaskName: "receiveTask",
-                Delay: SlowerTime
-              }); // 减慢请求速度
+              queueReceiveTask(SlowerTime); // 减慢请求速度
             } else {
-              worker.postMessage({
-                TaskName: "receiveTask",
-                Delay: ReceiveTime
-              }); // 使用正常请求速度
+              queueReceiveTask(ReceiveTime); // 使用正常请求速度
             }
           });
         return res;
@@ -501,14 +522,30 @@ function getBonusInfo() {
       });
     }
     utils.getBounsInfo(awardInstance.taskId).then((res) => {
-      totalStockEl.textContent = `总剩余量：${res.stock_info.total_stock}%`;
+      const stockInfo = res?.stock_info || {};
+      totalStockEl.textContent = `总剩余量：${stockInfo.total_stock ?? "__"}%`;
+
+      const dayStock = Number(stockInfo.day_stock);
+      if (receiveStarted && Number.isFinite(dayStock)) {
+        if (dayStock > 0 && !seenDayStockPositiveAfterStart) {
+          seenDayStockPositiveAfterStart = true;
+          logMessage(`检测到日库存已大于0（day_stock=${dayStock}），继续自动领取`, "green");
+        } else if (dayStock <= 0 && seenDayStockPositiveAfterStart && !stoppedByDayStock) {
+          stoppedByDayStock = true;
+          logMessage("检测到 day_stock=0，已停止自动领取", "red");
+        }
+      }
+
       const desc = awardInstance.awardInfo.award_description;
       const match = desc.match(/(\d{2,}).*?(\d{2,})份/);
       if (match) {
         const [_, totalAmount, dailyAmount] = match.map(Number); // 转换为数字
-        const currentStockCount = totalAmount * (res.stock_info.total_stock / 100);
-        const daysLeft = Math.ceil(currentStockCount / dailyAmount);
-        dayLeftEl.textContent = `${daysLeft}天`;
+        const totalStockPercent = Number(stockInfo.total_stock);
+        if (Number.isFinite(totalStockPercent) && dailyAmount > 0) {
+          const currentStockCount = totalAmount * (totalStockPercent / 100);
+          const daysLeft = Math.ceil(currentStockCount / dailyAmount);
+          dayLeftEl.textContent = `${daysLeft}天`;
+        }
       }
     });
   }
@@ -518,17 +555,14 @@ function registerAllHandlers() {
   // 注册信号处理器 - 执行领取操作
   registerHandler("signal", () => {
     logMessage("收到信号: 执行领取操作", "black", new Date().toLocaleTimeString() + "." + String(new Date().getMilliseconds()).padStart(3, '0'));
-    awardInstance.handelReceive("user");
+    triggerReceive("signal");
   });
 
   // 注册定时器到达处理器
   registerHandler("timerReached", () => {
     logMessage("定时时间已到！执行领取操作", "red", new Date().toLocaleTimeString() + "." + String(new Date().getMilliseconds()).padStart(3, '0'));
     //awardInstance.handelReceive("user");
-    worker.postMessage({
-      TaskName: "receiveTask",
-      Delay: 0
-    }); // 使用正常请求速度
+    queueReceiveTask(0); // 使用正常请求速度
   });
 
   // 注册定时器设置处理器（新增）
@@ -617,7 +651,7 @@ function initializeAward() {
   } else {
     // 未启用定时，延迟1秒后执行第一次领取
     setTimeout(() => {
-      awardInstance.handelReceive("user");
+      triggerReceive("init");
     }, 1000);
   }
 
